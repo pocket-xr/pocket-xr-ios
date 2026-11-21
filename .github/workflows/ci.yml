@@ -1,0 +1,111 @@
+name: CI
+
+# The repo is private while it is being built, so macOS minutes count against the organisation's free 2,000 Actions
+# minutes a month at 10x (about 200 macOS minutes). Keep runs few: one job, older runs on the same branch cancelled.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          echo "Using $XC"
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+          sw_vers
+
+      - name: Core unit tests
+        run: swift test 2>&1 | tail -20
+
+      - name: Core checks
+        run: |
+          mkdir -p .build/checks
+          swiftc -swift-version 5 -module-name CoreChecks -Onone Sources/PocketXRCore/*.swift Checks/*.swift -o .build/checks/core-checks
+          .build/checks/core-checks
+
+      - name: Make the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build for iPhone and iPad (device, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project PocketXR.xcodeproj -scheme PocketXR -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -30
+
+      - name: Build for the Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project PocketXR.xcodeproj -scheme PocketXR -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -30
+
+      - name: Run in the Simulator against fake glasses
+        run: |
+          set -euo pipefail
+          swift build -c release --product FakeGlasses
+          .build/release/FakeGlasses 52998 600 > fake-glasses.log 2>&1 &
+          UDID=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | test("iOS-26")) | .value[] | select(.name | test("^iPhone"))][0].udid')
+          echo "Simulator $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          open -a Simulator --args -CurrentDeviceUDID "$UDID" || true
+          xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/PocketXR.app
+          xcrun simctl launch --stdout="$PWD/app.log" --stderr="$PWD/app.log" "$UDID" com.hayeco.pocketxr.ios \
+            -PXRProbeHost 127.0.0.1 -PXRSelfTest 12
+          DATA=$(xcrun simctl get_app_container "$UDID" com.hayeco.pocketxr.ios data)
+          for i in $(seq 1 60); do
+            [ -f "$DATA/Documents/selftest.json" ] && break
+            sleep 1
+          done
+          sleep 2
+          mkdir -p out
+          cp "$DATA"/Documents/* out/ || true
+          xcrun simctl io "$UDID" screenshot out/phone.png
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          cat app.log | tail -40
+          cat fake-glasses.log
+
+      - name: Try the Simulator's external display
+        continue-on-error: true
+        run: |
+          # Simulator's I/O > External Displays menu. UI scripting may not be allowed on the runner; if not, this step
+          # fails and the external display path stays unproven in CI.
+          osascript -e 'tell application "Simulator" to activate' \
+            -e 'tell application "System Events" to tell process "Simulator" to click menu item 2 of menu 1 of menu item "External Displays" of menu 1 of menu bar item "I/O" of menu bar 1'
+          sleep 4
+          xcrun simctl io "$UDID" screenshot --display=external out/external.png
+          xcrun simctl spawn "$UDID" log show --last 1m --predicate 'process == "PocketXR"' --style compact | grep -i "PXR\|glasses" | tail -20 || true
+
+      - name: Check the self-test
+        run: |
+          set -euo pipefail
+          jq . out/selftest.json | head -60
+          jq -e '.probe.link == "streaming"' out/selftest.json
+          jq -e '.probe.imuRateHz > 800' out/selftest.json
+          jq -e '(.probe.yawMaxDeg - .probe.yawMinDeg) > 10' out/selftest.json
+          test -s out/glasses-1920x1080.png
+          test -s out/glasses-3840x1080.png
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulator-results
+          path: |
+            out/
+            app.log
+            fake-glasses.log
+          retention-days: 14
