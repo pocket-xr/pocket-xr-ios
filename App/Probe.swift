@@ -59,7 +59,7 @@ final class Probe: @unchecked Sendable {
         state.yawMinDeg = 0
         state.yawMaxDeg = 0
         lock.unlock()
-        Log.line("probe: sensor axes set to \(a == .aura ? "Aura" : "One family")")
+        AppLog.line("probe: sensor axes set to \(a == .aura ? "Aura" : "One family")")
     }
 
     func recentre() {
@@ -90,7 +90,7 @@ final class Probe: @unchecked Sendable {
 
     private func run() {
         let overrideHost = UserDefaults.standard.string(forKey: "PXRProbeHost")
-        if let h = overrideHost { Log.line("probe: using test host \(h) instead of the glasses") }
+        if let h = overrideHost { AppLog.line("probe: using test host \(h) instead of the glasses") }
         var lastLogged = ""
         while true {
             let interfaces = GlassesNet.describeInterfaces()
@@ -108,18 +108,18 @@ final class Probe: @unchecked Sendable {
                     fd = try GlassesNet.connect(host: h, port: ImuFramer.port, route: nil, timeoutS: 2)
                     via = "\(h):\(ImuFramer.port) (test host)"
                 } else {
-                    (fd, via) = try GlassesNet.open(port: ImuFramer.port) { Log.line("probe: \($0)") }
+                    (fd, via) = try GlassesNet.open(port: ImuFramer.port) { AppLog.line("probe: \($0)") }
                 }
-                Log.line("probe: sensor stream open via \(via)")
+                AppLog.line("probe: sensor stream open via \(via)")
                 update { $0.link = .streaming; $0.via = via; $0.lastError = "" }
                 read(fd)
                 close(fd)
-                Log.line("probe: sensor stream closed")
+                AppLog.line("probe: sensor stream closed")
                 update { $0.link = .lost }
             } catch {
                 let msg = "\(error)"
                 if msg != lastLogged {
-                    Log.line("probe: \(msg); interfaces: \(interfaces)")
+                    AppLog.line("probe: \(msg); interfaces: \(interfaces)")
                     lastLogged = msg
                 }
                 update { $0.link = .looking; $0.lastError = msg }
@@ -139,7 +139,7 @@ final class Probe: @unchecked Sendable {
             if n == 0 { return }
             if n < 0 {
                 if errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR { continue }
-                Log.line("probe: read failed: \(String(cString: strerror(errno)))")
+                AppLog.line("probe: read failed: \(String(cString: strerror(errno)))")
                 return
             }
             let now = ProcessInfo.processInfo.systemUptime

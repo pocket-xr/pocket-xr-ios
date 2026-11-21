@@ -45,13 +45,16 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild -project PocketXR.xcodeproj -scheme PocketXR -configuration Release -sdk iphoneos \
-            -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -30
+            -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build > build-device.log 2>&1             || { grep -E "error:" build-device.log | sort -u | head -60; exit 1; }
+          grep -E "warning:" build-device.log | sort -u | head -40 || true
+          tail -3 build-device.log
 
       - name: Build for the Simulator
         run: |
           set -o pipefail
           xcodebuild -project PocketXR.xcodeproj -scheme PocketXR -configuration Debug -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -30
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build > build-sim.log 2>&1             || { grep -E "error:" build-sim.log | sort -u | head -60; exit 1; }
+          tail -3 build-sim.log
 
       - name: Run in the Simulator against fake glasses
         run: |
@@ -108,4 +111,5 @@ jobs:
             out/
             app.log
             fake-glasses.log
+            build-*.log
           retention-days: 14

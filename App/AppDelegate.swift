@@ -7,7 +7,7 @@ import UIKit
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        Log.line("Pocket XR \(AppInfo.version) (\(AppInfo.build)) starting on \(UIDevice.current.model), iOS \(UIDevice.current.systemVersion)")
+        AppLog.line("Pocket XR \(AppInfo.version) (\(AppInfo.build)) starting on \(UIDevice.current.model), iOS \(UIDevice.current.systemVersion)")
         Probe.shared.start()
         SelfTest.runIfAsked()
         return true
@@ -31,7 +31,7 @@ enum AppInfo {
 }
 
 /// A plain log, kept in memory for the report and printed for the Simulator and Xcode console.
-enum Log {
+enum AppLog {
     private static let lock = NSLock()
     private static var lines = [String]()
     private static let start = Date()

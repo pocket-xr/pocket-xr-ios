@@ -91,7 +91,7 @@ struct Report: Codable {
     @MainActor
     static func make(display: DisplayInfo, probe: ProbeState) -> Report {
         Report(app: "\(AppInfo.version) (\(AppInfo.build))", device: deviceModel(), system: "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)",
-               display: display, probe: probe, log: Log.text)
+               display: display, probe: probe, log: AppLog.text)
     }
 
     var text: String {

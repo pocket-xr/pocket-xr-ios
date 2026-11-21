@@ -51,7 +51,7 @@ final class GlassesSceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
         let screen = windowScene.screen
         let info = DisplayInfo.of(screen)
-        Log.line("glasses: external display connected, \(Int(info.widthPt))x\(Int(info.heightPt)) pt at \(info.scale)x, native \(Int(info.nativeWidth))x\(Int(info.nativeHeight)), \(info.maxFps) fps, modes \(info.modes.joined(separator: " ")), current \(info.currentMode)")
+        AppLog.line("glasses: external display connected, \(Int(info.widthPt))x\(Int(info.heightPt)) pt at \(info.scale)x, native \(Int(info.nativeWidth))x\(Int(info.nativeHeight)), \(info.maxFps) fps, modes \(info.modes.joined(separator: " ")), current \(info.currentMode)")
         let window = UIWindow(windowScene: windowScene)
         window.rootViewController = UIHostingController(rootView: GlassesView().environmentObject(AppModel.shared))
         window.isHidden = false
@@ -61,7 +61,7 @@ final class GlassesSceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
-        Log.line("glasses: external display gone")
+        AppLog.line("glasses: external display gone")
         AppModel.shared.display = DisplayInfo()
         UIApplication.shared.isIdleTimerDisabled = false
         window = nil

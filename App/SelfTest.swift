@@ -8,7 +8,7 @@ enum SelfTest {
     static func runIfAsked() {
         let seconds = UserDefaults.standard.double(forKey: "PXRSelfTest")
         guard seconds > 0 else { return }
-        Log.line("selftest: will report in \(seconds) s")
+        AppLog.line("selftest: will report in \(seconds) s")
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
             MainActor.assumeIsolated { finish() }
         }
@@ -40,9 +40,9 @@ enum SelfTest {
                     try png.write(to: docs.appendingPathComponent("glasses-\(Int(w))x\(Int(h)).png"))
                 }
             }
-            Log.line("selftest: written to \(docs.path)")
+            AppLog.line("selftest: written to \(docs.path)")
         } catch {
-            Log.line("selftest: could not write: \(error)")
+            AppLog.line("selftest: could not write: \(error)")
         }
         print("PXR-SELFTEST-DONE \(docs.path)")
     }

@@ -19,8 +19,14 @@ public final class Log: @unchecked Sendable {
     public var echo = false
 
     init() {
+        #if os(macOS)
         folder = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/Pocket XR", isDirectory: true)
+        #else
+        // iOS: the app's own Library/Logs (iOS change; the Mac copy keeps ~/Library/Logs).
+        folder = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Logs/Pocket XR", isDirectory: true)
+        #endif
         file = folder.appendingPathComponent("pocket-xr.log")
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         open()

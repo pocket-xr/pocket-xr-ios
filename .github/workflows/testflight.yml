@@ -1,0 +1,69 @@
+name: TestFlight
+
+# Builds, signs and uploads a build to App Store Connect (TestFlight). Run by hand only. Signing is cloud-managed by
+# Apple through the App Store Connect API key in the repo's secrets (docs/APPSTORE-SETUP.md); no certificate is kept
+# here. Nothing reaches testers until someone adds the build to a TestFlight group in App Store Connect.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the secrets are there
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+            if [ -z "${!v}" ]; then echo "Secret $v is missing: see docs/APPSTORE-SETUP.md"; exit 1; fi
+          done
+
+      - name: Use Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+
+      - name: Make the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Archive and upload
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          KEY="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$KEY"
+          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+          xcodebuild -project PocketXR.xcodeproj -scheme PocketXR -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath build/PocketXR.xcarchive \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} "${AUTH[@]}" archive | tail -30
+          cat > build/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>N9A4U4NP67</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath build/PocketXR.xcarchive -exportOptionsPlist build/ExportOptions.plist \
+            -exportPath build/export "${AUTH[@]}" | tail -30
+          rm -f "$KEY"
+          echo "Uploaded build ${{ github.run_number }}. It shows in App Store Connect, TestFlight, after Apple's processing (usually 5-30 minutes)."
