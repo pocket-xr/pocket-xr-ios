@@ -14,8 +14,8 @@ concurrency:
 
 jobs:
   ios:
-    runs-on: macos-15
-    timeout-minutes: 30
+    runs-on: macos-26
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -57,15 +57,18 @@ jobs:
           tail -3 build-sim.log
 
       - name: Run in the Simulator against fake glasses
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           swift build -c release --product FakeGlasses
           .build/release/FakeGlasses 52998 600 > fake-glasses.log 2>&1 &
           UDID=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | test("iOS-26")) | .value[] | select(.name | test("^iPhone"))][0].udid')
-          echo "Simulator $UDID"
-          xcrun simctl boot "$UDID"
-          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl list runtimes
+          echo "$(date +%T) Simulator $UDID"
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
           open -a Simulator --args -CurrentDeviceUDID "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          echo "$(date +%T) booted"
           xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/PocketXR.app
           xcrun simctl launch --stdout="$PWD/app.log" --stderr="$PWD/app.log" "$UDID" com.hayeco.pocketxr.ios \
             -PXRProbeHost 127.0.0.1 -PXRSelfTest 12
@@ -78,12 +81,12 @@ jobs:
           mkdir -p out
           cp "$DATA"/Documents/* out/ || true
           xcrun simctl io "$UDID" screenshot out/phone.png
-          echo "UDID=$UDID" >> "$GITHUB_ENV"
           cat app.log | tail -40
           cat fake-glasses.log
 
       - name: Try the Simulator's external display
         continue-on-error: true
+        timeout-minutes: 3
         run: |
           # Simulator's I/O > External Displays menu. UI scripting may not be allowed on the runner; if not, this step
           # fails and the external display path stays unproven in CI.
