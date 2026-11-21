@@ -41,9 +41,17 @@ enum AppLog {
         lock.lock()
         lines.append(stamped)
         if lines.count > 400 { lines.removeFirst(lines.count - 400) }
+        if let h = file { h.write(Data((stamped + "\n").utf8)) }
         lock.unlock()
         print("PXR " + stamped)
     }
+
+    /// Documents/pocketxr-log.txt, rewritten at each start: CI reads it from the Simulator, and the Files app shows it.
+    private static let file: FileHandle? = {
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("pocketxr-log.txt")
+        FileManager.default.createFile(atPath: url.path, contents: nil)
+        return try? FileHandle(forWritingTo: url)
+    }()
 
     static var text: String {
         lock.lock(); defer { lock.unlock() }

@@ -86,15 +86,32 @@ jobs:
 
       - name: Try the Simulator's external display
         continue-on-error: true
-        timeout-minutes: 3
+        timeout-minutes: 4
         run: |
-          # Simulator's I/O > External Displays menu. UI scripting may not be allowed on the runner; if not, this step
-          # fails and the external display path stays unproven in CI.
-          osascript -e 'tell application "Simulator" to activate' \
-            -e 'tell application "System Events" to tell process "Simulator" to click menu item 2 of menu 1 of menu item "External Displays" of menu 1 of menu bar item "I/O" of menu bar 1'
-          sleep 4
-          xcrun simctl io "$UDID" screenshot --display=external out/external.png
-          xcrun simctl spawn "$UDID" log show --last 1m --predicate 'process == "PocketXR"' --style compact | grep -i "PXR\|glasses" | tail -20 || true
+          # Simulator's I/O > External Displays menu, by UI scripting. Proven only if the app logs that iOS gave it
+          # the external display scene.
+          M='menu 1 of menu item "External Displays" of menu 1 of menu bar item "I/O" of menu bar 1'
+          osascript -e 'tell application "Simulator" to activate'             -e "tell application \"System Events\" to tell process \"Simulator\" to get name of every menu item of $M"
+          osascript -e 'tell application "Simulator" to activate'             -e "tell application \"System Events\" to tell process \"Simulator\"
+                  set names to name of every menu item of $M
+                  repeat with i from 1 to count of names
+                    if (item i of names as text) contains \"1920\" then
+                      click menu item i of $M
+                      return \"clicked \" & (item i of names as text)
+                    end if
+                  end repeat
+                  click menu item 2 of $M
+                  return \"clicked item 2\"
+                end tell"
+          DATA=$(xcrun simctl get_app_container "$UDID" com.hayeco.pocketxr.ios data)
+          for i in $(seq 1 30); do
+            grep -q "external display connected" "$DATA/Documents/pocketxr-log.txt" && break
+            sleep 1
+          done
+          cp "$DATA/Documents/pocketxr-log.txt" out/ || true
+          grep "glasses:" "$DATA/Documents/pocketxr-log.txt"
+          sleep 3
+          xcrun simctl io "$UDID" screenshot --display=external out/external.png || echo "no external screenshot"
 
       - name: Check the self-test
         run: |
