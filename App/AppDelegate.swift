@@ -10,10 +10,22 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         AppLog.line("Pocket XR \(AppInfo.version) (\(AppInfo.build)) starting on \(UIDevice.current.model), iOS \(UIDevice.current.systemVersion)")
         Probe.shared.start()
         SelfTest.runIfAsked()
+        // For finding out how iOS hands over the glasses: every screen it reports, as it comes and goes.
+        for name in [UIScreen.didConnectNotification, UIScreen.didDisconnectNotification] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { n in
+                let s = n.object as? UIScreen
+                AppLog.line("screen: \(n.name.rawValue), \(s.map { "\(Int($0.bounds.width))x\(Int($0.bounds.height))" } ?? "?")")
+            }
+        }
+        NotificationCenter.default.addObserver(forName: UIScene.willConnectNotification, object: nil, queue: .main) { n in
+            let s = n.object as? UIScene
+            AppLog.line("scene: connected, role \(s?.session.role.rawValue ?? "?")")
+        }
         return true
     }
 
     func application(_ application: UIApplication, configurationForConnecting session: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        AppLog.line("scene: iOS offers a scene with role \(session.role.rawValue)")
         if session.role == .windowExternalDisplayNonInteractive {
             let config = UISceneConfiguration(name: "Glasses", sessionRole: session.role)
             config.delegateClass = GlassesSceneDelegate.self
