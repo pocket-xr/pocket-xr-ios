@@ -73,10 +73,10 @@ jobs:
           echo "$(date +%T) booted"
           xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/PocketXR.app
           xcrun simctl launch --stdout="$PWD/app.log" --stderr="$PWD/app.log" "$UDID" com.hayeco.pocketxr.ios \
-            -PXRProbeHost 127.0.0.1 -PXRSelfTest 12
+            -PXRProbeHost 127.0.0.1 -PXRSelfTest 20 -PXRDemo YES -PXRFreshSpace YES
           DATA=$(xcrun simctl get_app_container "$UDID" com.hayeco.pocketxr.ios data)
-          for i in $(seq 1 60); do
-            [ -f "$DATA/Documents/selftest.json" ] && break
+          for i in $(seq 1 90); do
+            [ -f "$DATA/Documents/selftest.json" ] && [ -f "$DATA/Documents/space.json" ] && break
             sleep 1
           done
           sleep 2
@@ -122,6 +122,12 @@ jobs:
           jq -e '.probe.link == "streaming"' out/selftest.json
           jq -e '.probe.imuRateHz > 800' out/selftest.json
           jq -e '(.probe.yawMaxDeg - .probe.yawMinDeg) > 10' out/selftest.json
+          jq . out/space.json
+          jq -e '.done and (.errors | length == 0)' out/space.json
+          jq -e '.buttonText == "clicked 1"' out/space.json
+          jq -e '.fieldValue == "hello"' out/space.json
+          jq -e '.listScrollTop > 100' out/space.json
+          jq -e '.lockedMoveBlocked and .arrangedWithoutOverlap' out/space.json
           test -s out/glasses-1920x1080.png
           test -s out/glasses-3840x1080.png
 

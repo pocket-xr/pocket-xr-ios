@@ -8,7 +8,7 @@ final class PhoneSceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = UIHostingController(rootView: ProbeView().environmentObject(AppModel.shared))
+        window.rootViewController = PhoneHostingController(rootView: AnyView(PhoneHome().environmentObject(AppModel.shared)))
         window.makeKeyAndVisible()
         self.window = window
     }
@@ -34,7 +34,8 @@ struct ProbeView: View {
                         row("Refresh", "\(model.display.maxFps) Hz")
                         row("Modes", model.display.modes.joined(separator: ", "))
                         row("Current mode", model.display.currentMode)
-                        Toggle("Draw side by side", isOn: $model.sideBySide)
+                        Toggle("Test picture instead of the Space", isOn: $model.testPicture)
+                        Toggle("Draw the test picture side by side", isOn: $model.sideBySide)
                     }
                 }
                 Section("Glasses USB network") {

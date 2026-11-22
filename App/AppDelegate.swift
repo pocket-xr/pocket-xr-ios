@@ -9,7 +9,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         AppLog.line("Pocket XR \(AppInfo.version) (\(AppInfo.build)) starting on \(UIDevice.current.model), iOS \(UIDevice.current.systemVersion)")
         Probe.shared.start()
+        _ = SpaceController.shared
+        MouseInput.shared.start()
         SelfTest.runIfAsked()
+        SpaceSelfTest.runIfAsked()
         // For finding out how iOS hands over the glasses: every screen it reports, as it comes and goes.
         for name in [UIScreen.didConnectNotification, UIScreen.didDisconnectNotification] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { n in

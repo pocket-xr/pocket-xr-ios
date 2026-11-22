@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import UIKit
 import PocketXRCore
@@ -37,6 +38,8 @@ final class AppModel: ObservableObject {
     @Published var display = DisplayInfo()
     @Published var probe = ProbeState()
     @Published var sideBySide = false
+    /// The glasses show the probe's test picture instead of the Space.
+    @Published var testPicture = UserDefaults.standard.bool(forKey: "PXRTestPicture")
 
     private init() {
         Probe.shared.onChange = { [weak self] s in self?.probe = s }
@@ -53,7 +56,7 @@ final class GlassesSceneDelegate: UIResponder, UIWindowSceneDelegate {
         let info = DisplayInfo.of(screen)
         AppLog.line("glasses: external display connected, \(Int(info.widthPt))x\(Int(info.heightPt)) pt at \(info.scale)x, native \(Int(info.nativeWidth))x\(Int(info.nativeHeight)), \(info.maxFps) fps, modes \(info.modes.joined(separator: " ")), current \(info.currentMode)")
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = UIHostingController(rootView: GlassesView().environmentObject(AppModel.shared))
+        window.rootViewController = GlassesRootController()
         window.isHidden = false
         self.window = window
         AppModel.shared.display = info
@@ -64,7 +67,43 @@ final class GlassesSceneDelegate: UIResponder, UIWindowSceneDelegate {
         AppLog.line("glasses: external display gone")
         AppModel.shared.display = DisplayInfo()
         UIApplication.shared.isIdleTimerDisabled = false
+        SpaceController.shared.attachGlasses(nil)
         window = nil
+    }
+}
+
+/// What the glasses show: the Space, or the probe's test picture when asked for.
+final class GlassesRootController: UIViewController {
+    private let spaceContainer = UIView()
+    private var picture: UIHostingController<AnyView>?
+    private var watch: AnyCancellable?
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        spaceContainer.frame = view.bounds
+        spaceContainer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(spaceContainer)
+        SpaceController.shared.view.fovYDeg = GlassesOptics.auraFovYDeg
+        SpaceController.shared.attachGlasses(spaceContainer)
+        watch = AppModel.shared.$testPicture.sink { [weak self] on in self?.showPicture(on) }
+    }
+
+    private func showPicture(_ on: Bool) {
+        if on, picture == nil {
+            let h = UIHostingController(rootView: AnyView(GlassesView().environmentObject(AppModel.shared)))
+            addChild(h)
+            h.view.frame = view.bounds
+            h.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            view.addSubview(h.view)
+            h.didMove(toParent: self)
+            picture = h
+        } else if !on, let h = picture {
+            h.willMove(toParent: nil)
+            h.view.removeFromSuperview()
+            h.removeFromParent()
+            picture = nil
+        }
     }
 }
 
