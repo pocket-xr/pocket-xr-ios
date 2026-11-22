@@ -81,8 +81,10 @@ final class SpaceView: UIView {
     private func projection() -> simd_float4x4 {
         let aspect = Double(max(bounds.width, 1) / max(bounds.height, 1))
         let p = SpaceMath.perspective(fovYDeg: fovYDeg, aspect: aspect)
-        // Clip space to this view's points, measured from its middle, y down; z dropped (painter's order instead).
-        let s = simd_float4x4(diagonal: SIMD4(Float(bounds.width / 2), Float(-bounds.height / 2), 0, 1))
+        // Clip space to this view's points, measured from its middle, y down. Depth is kept but shrunk (painter's
+        // order does the layering): a zero would make the matrix singular, and WebKit inverts its view's transform
+        // (a NaN scroll offset and a crash, seen in the Simulator on 22 Nov 2026).
+        let s = simd_float4x4(diagonal: SIMD4(Float(bounds.width / 2), Float(-bounds.height / 2), 0.001, 1))
         return s * p
     }
 
