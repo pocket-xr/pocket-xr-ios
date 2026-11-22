@@ -115,6 +115,18 @@ Not done, compared with Android: the late rotation warp (Android re-turns each f
 as controllers (no camera path on iPhone), haptics (Android does not send them either), the loading scene and the
 tile's live SteamVR state.
 
+## Phase 5: release preparation (22 Nov 2026)
+
+| Item | State |
+|---|---|
+| Privacy manifest (App/PrivacyInfo.xcprivacy): no tracking, no data collected; UserDefaults and system boot time reasons | In the app; CI run 44983349799 passed with it |
+| Privacy policy for iOS (PRIVACY.md) | Written; needs a public URL (this repo is private) |
+| App Store listing, keywords, review notes, release checks (docs/APPSTORE-LISTING.md) | Drafted for Mike; nothing entered anywhere |
+| Screenshots: iPhone 6.9" (1320x2868) and iPad 13" (2064x2752): the Space, the tour, Settings (docs/appstore-screenshots, Screenshots workflow run 44983360335) | Made in the Simulator. The Space picture crops the two windows at its edges and shows Hacker News and Wikipedia; photos through real glasses would show the app better. |
+| GPL question for the App Store (moonlight-common-c) | Draft note to Moonlight's developers in docs/APPSTORE-LISTING.md; not sent, Mike's call |
+| App Store Connect: bundle id, app record, API key, repo secrets (docs/APPSTORE-SETUP.md) | **Waiting for Mike** |
+| TestFlight upload (the TestFlight workflow) | Not run: needs the API key secrets |
+
 ## Only a real device can prove
 
 - That a USB-C iPhone or iPad shows Pocket XR's own picture on the glasses (rather than mirroring), at what size
