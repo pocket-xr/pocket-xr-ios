@@ -30,8 +30,10 @@ jobs:
       - name: Build ALVR's client core
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          rustc --version || curl -sSf https://sh.rustup.rs | sh -s -- -y
-          source "$HOME/.cargo/env" 2>/dev/null || true
+          if ! command -v rustup >/dev/null; then curl -sSf https://sh.rustup.rs | sh -s -- -y; fi
+          if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
+          rustc --version
+          rustup --version
           bash scripts/build-alvr.sh
 
       - name: What was made
