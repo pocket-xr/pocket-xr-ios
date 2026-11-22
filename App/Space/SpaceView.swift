@@ -5,11 +5,24 @@ import UIKit
 
 /// The Space drawn with Core Animation: every window is a live UIKit view (a web page, the launcher, the Control
 /// Center) given a 3D transform each frame from the head's pose, so web pages, video and typing stay live at the
-/// display's rate. One picture for both eyes (2D): a live web page cannot be drawn twice, so there is no per-window
-/// depth for web windows (docs/PLAN.md).
+/// display's rate. One picture for both eyes: a live web page cannot be drawn from two eye positions, so there is
+/// no per-window depth for web windows (docs/STATUS.md). When the glasses are in 3D (a side-by-side display such as
+/// 3840x1080), the view's replicator layer shows the one eye's picture twice, once in each half.
 final class SpaceView: UIView {
     /// The glasses' vertical field of view; the phone's preview uses the same so it shows what the glasses would.
     var fovYDeg = GlassesOptics.auraFovYDeg
+    /// Draws side by side whatever the view's shape (the self-test).
+    var forceSideBySide = false {
+        didSet { setNeedsLayout() }
+    }
+
+    override class var layerClass: AnyClass { CAReplicatorLayer.self }
+
+    /// One eye's picture: every window and the pointer. Half the view in side by side, else all of it.
+    private let eye = UIView()
+
+    /// Side by side now: the view is at least 3.2 times as wide as tall (the Android rule), or forced.
+    private(set) var sideBySide = false
 
     private var link: CADisplayLink?
     private let pointerLayer = CALayer()
@@ -22,6 +35,10 @@ final class SpaceView: UIView {
         backgroundColor = .black
         clipsToBounds = true
         isUserInteractionEnabled = false
+        eye.clipsToBounds = true
+        eye.backgroundColor = .black
+        eye.isUserInteractionEnabled = false
+        addSubview(eye)
         pointerRing.bounds = CGRect(x: 0, y: 0, width: 22, height: 22)
         pointerRing.cornerRadius = 11
         pointerRing.borderWidth = 2
@@ -33,13 +50,25 @@ final class SpaceView: UIView {
         pointerLayer.bounds = CGRect(x: 0, y: 0, width: 8, height: 8)
         pointerLayer.cornerRadius = 4
         pointerLayer.backgroundColor = UIColor.white.cgColor
-        layer.addSublayer(pointerRing)
-        layer.addSublayer(pointerLayer)
+        eye.layer.addSublayer(pointerRing)
+        eye.layer.addSublayer(pointerLayer)
         pointerRing.zPosition = 1000
         pointerLayer.zPosition = 1001
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let sbs = forceSideBySide || GlassesOptics.isSideBySide(width: Int(bounds.width), height: Int(bounds.height))
+        if sbs != sideBySide { AppLog.line("space: \(sbs ? "side by side" : "one picture") at \(Int(bounds.width))x\(Int(bounds.height))") }
+        sideBySide = sbs
+        eye.frame = sbs ? CGRect(x: 0, y: 0, width: bounds.width / 2, height: bounds.height) : bounds
+        if let r = layer as? CAReplicatorLayer {
+            r.instanceCount = sbs ? 2 : 1
+            r.instanceTransform = CATransform3DMakeTranslation(bounds.width / 2, 0, 0)
+        }
+    }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -55,9 +84,9 @@ final class SpaceView: UIView {
     /// The window views, kept in step with the controller's windows.
     func sync(hosts all: [UUID: WindowHost]) {
         for (id, h) in hosts where all[id] == nil { h.removeFromSuperview() }
-        for (id, h) in all where h.superview !== self {
+        for (id, h) in all where h.superview !== eye {
             h.layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            insertSubview(h, at: 0)
+            eye.insertSubview(h, at: 0)
             hosts[id] = h
         }
         hosts = all
@@ -65,20 +94,22 @@ final class SpaceView: UIView {
 
     @objc private func step(_ l: CADisplayLink) {
         let c = SpaceController.shared
-        c.tick(now: l.timestamp, view: self)
+        c.tick(now: l.timestamp, period: max(l.targetTimestamp - l.timestamp, 1.0 / 240), view: self)
         draw(head: c.head, windows: c.space.windows, focused: c.space.focused, pointer: c.pointer.aim,
              pointerDistance: c.pointerDistance, hovering: c.hover != nil)
     }
 
     /// The view's half field of view, degrees: (horizontal, vertical).
     var halfFovDeg: (Double, Double) {
-        let aspect = Double(max(bounds.width, 1) / max(bounds.height, 1))
+        let b = eye.bounds
+        let aspect = Double(max(b.width, 1) / max(b.height, 1))
         let halfY = fovYDeg / 2
         let halfX = atan(tan(halfY * .pi / 180) * aspect) * 180 / .pi
         return (halfX, halfY)
     }
 
     private func projection() -> simd_float4x4 {
+        let bounds = eye.bounds
         let aspect = Double(max(bounds.width, 1) / max(bounds.height, 1))
         let p = SpaceMath.perspective(fovYDeg: fovYDeg, aspect: aspect)
         // Clip space to this view's points, measured from its middle, y down. Depth is kept but shrunk (painter's
@@ -92,13 +123,13 @@ final class SpaceView: UIView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         let pv = projection() * SpaceMath.view(head: head, eyeX: 0)
-        let centre = CGPoint(x: bounds.midX, y: bounds.midY)
+        let centre = CGPoint(x: eye.bounds.midX, y: eye.bounds.midY)
         let forward = head.rotate(SIMD3(0, 0, -1))
         // Farthest first, so nearer windows draw over them.
         let sorted = windows.sorted { $0.distance > $1.distance }
         let ids = sorted.map { $0.id }
         if ids != order {
-            for id in ids { if let h = hosts[id] { bringSubviewToFront(h) } }
+            for id in ids { if let h = hosts[id] { eye.bringSubviewToFront(h) } }
             order = ids
         }
         for w in sorted {

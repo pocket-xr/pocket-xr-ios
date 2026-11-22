@@ -165,6 +165,10 @@ final class LauncherPanel: PanelContent {
 final class ControlCenterPanel: PanelContent {
     override var title: String { "Control Center" }
     private let lockSwitch = UISwitch()
+    private let trackingSwitch = UISwitch()
+    private let followControl = UISegmentedControl(items: ["Stay in place", "Smooth Follow"])
+    private let shapeRow = UIStackView()
+    private let shapeTitle = UILabel()
     private let status = UILabel()
     private let arrangeRow = UIStackView()
     private let presetRow = UIStackView()
@@ -216,6 +220,33 @@ final class ControlCenterPanel: PanelContent {
         }, for: .valueChanged)
         stack.addArrangedSubview(lockRow)
 
+        let trackRow = UIStackView(arrangedSubviews: [label("Head tracking", size: 24), UIView(), followControl, trackingSwitch])
+        trackRow.axis = .horizontal
+        trackRow.spacing = 16
+        trackingSwitch.onTintColor = accent
+        trackingSwitch.addAction(UIAction { [weak self] _ in
+            guard let self = self else { return }
+            controller.setHeadTracking(self.trackingSwitch.isOn)
+        }, for: .valueChanged)
+        followControl.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 20, weight: .medium), .foregroundColor: ink], for: .normal)
+        followControl.selectedSegmentTintColor = accent
+        followControl.addAction(UIAction { [weak self] _ in
+            guard let self = self else { return }
+            controller.setFollow(self.followControl.selectedSegmentIndex == 1)
+        }, for: .valueChanged)
+        stack.addArrangedSubview(trackRow)
+
+        shapeTitle.font = .systemFont(ofSize: 22, weight: .semibold)
+        shapeTitle.textColor = ink2
+        stack.addArrangedSubview(shapeTitle)
+        shapeRow.axis = .horizontal
+        shapeRow.spacing = 10
+        shapeRow.distribution = .fillEqually
+        for s in WindowShape.allCases {
+            shapeRow.addArrangedSubview(pill(s.rawValue) { controller.shapeFocused(s) })
+        }
+        stack.addArrangedSubview(shapeRow)
+
         stack.addArrangedSubview(label("Presets", size: 22, weight: .semibold, color: ink2))
         presetRow.axis = .horizontal
         presetRow.spacing = 12
@@ -224,12 +255,30 @@ final class ControlCenterPanel: PanelContent {
         refresh()
     }
 
+    /// For the self-test.
+    var lockSwitchForTest: UISwitch { lockSwitch }
+    func shapeButtonForTest(_ s: WindowShape) -> UIButton? {
+        guard let i = WindowShape.allCases.firstIndex(of: s), i < shapeRow.arrangedSubviews.count else { return nil }
+        return shapeRow.arrangedSubviews[i] as? UIButton
+    }
+
     /// Brings the panel up to date with the Space (called when it changes).
     func refresh() {
         guard let c = controller else { return }
         lockSwitch.isOn = c.space.locked
+        trackingSwitch.isOn = c.tracking.headTracking
+        followControl.selectedSegmentIndex = c.tracking.trackingMode == .smoothFollow ? 1 : 0
+        if let w = c.focusedWeb {
+            let now = WindowShape.current(width: w.layoutWidth, height: w.layoutHeight - Double(WindowHost.barHeight))
+            shapeTitle.text = "This window: \(w.title)" + (now.map { "  (\($0.rawValue))" } ?? "")
+            shapeRow.isHidden = false
+        } else {
+            shapeTitle.text = "This window: click a web window first"
+            shapeRow.isHidden = true
+        }
         let webCount = c.space.windows.filter { if case .web = $0.kind { return true } else { return false } }.count
-        let tracking = Probe.shared.snapshot.link == .streaming ? "Head tracking on" : "No head tracking (drag the pointer to the edge to look around)"
+        let tracking = c.tracked ? "Head tracking on"
+            : (Probe.shared.snapshot.link == .streaming ? "Head tracking off" : "No head tracking (drag the pointer to the edge to look around)")
         status.text = "\(webCount) web window\(webCount == 1 ? "" : "s").  \(tracking)"
         arrangeRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let count = max(1, min(3, webCount))

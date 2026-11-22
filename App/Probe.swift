@@ -35,6 +35,9 @@ final class Probe: @unchecked Sendable {
     private var started = false
     private var axes: HeadFusion.Axes = .aura
     private var fusion = HeadFusion(axes: .aura)
+    /// The drawing pose: prediction to the frame's light, draw smoothing, the Still lock, Smooth Follow (the same
+    /// chain as on the Mac and Steam Deck, PocketXRCore's HeadPose).
+    private lazy var pose = HeadPose(fusion: fusion)
 
     /// Called on the main queue whenever the state changes, at most about 30 times a second.
     var onChange: ((ProbeState) -> Void)?
@@ -56,6 +59,7 @@ final class Probe: @unchecked Sendable {
         lock.lock()
         axes = a
         fusion = HeadFusion(axes: a)
+        pose = HeadPose(fusion: fusion)
         state.yawMinDeg = 0
         state.yawMaxDeg = 0
         lock.unlock()
@@ -64,9 +68,25 @@ final class Probe: @unchecked Sendable {
 
     func recentre() {
         lock.lock()
-        let f = fusion
+        let p = pose
         lock.unlock()
-        f.recentre()
+        p.recentre(yawDeg: 0, followTilt: true)
+    }
+
+    /// The pose to draw the next frame with, from HeadPose.
+    func drawPose(now: Double, framePeriod: Double, options: TrackingOptions) -> Quat {
+        lock.lock()
+        let p = pose
+        lock.unlock()
+        return p.drawPose(now: now, framePeriod: framePeriod, options: options)
+    }
+
+    /// Whether the Still lock holds the picture now.
+    var held: Bool {
+        lock.lock()
+        let p = pose
+        lock.unlock()
+        return p.held
     }
 
     func start() {

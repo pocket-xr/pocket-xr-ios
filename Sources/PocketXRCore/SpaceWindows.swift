@@ -56,6 +56,30 @@ public struct SpaceWindow: Codable, Equatable, Sendable, Identifiable {
     public var heightDeg: Double { SpaceLayout.heightDeg(widthDeg: widthDeg, aspect: aspect) }
 }
 
+/// Common window shapes, one tap each (Android 1.3.3's WindowShape): the window keeps about the same size.
+public enum WindowShape: String, CaseIterable, Codable, Sendable {
+    case wide = "16:9", laptop = "3:2", tablet = "4:3", square = "1:1", phone = "9:16"
+
+    public var ratio: Double {
+        switch self {
+        case .wide: return 16.0 / 9
+        case .laptop: return 3.0 / 2
+        case .tablet: return 4.0 / 3
+        case .square: return 1
+        case .phone: return 9.0 / 16
+        }
+    }
+
+    /// How close a shape must be to count as this one.
+    public static let match = 0.03
+
+    /// The shape a content area of [width] by [height] already is, or nil.
+    public static func current(width: Double, height: Double) -> WindowShape? {
+        let a = width / max(height, 1)
+        return allCases.first { abs(a / $0.ratio - 1) <= match }
+    }
+}
+
 /// A point in the Space as seen from the head: yaw (left positive) and pitch (up positive), degrees.
 public struct SpaceAim: Codable, Equatable, Sendable {
     public var yawDeg: Double
@@ -103,7 +127,7 @@ public struct SpaceWindows: Codable, Equatable, Sendable {
     public static let launcherWidth = 960.0
     public static let launcherHeight = 600.0
     public static let controlWidth = 760.0
-    public static let controlHeight = 520.0
+    public static let controlHeight = 800.0
     /// Two windows' facing edges closer than this snap together, degrees.
     public static let snapDeg = 3.0
     /// Pushing and pulling change the distance by this factor a step.
@@ -222,6 +246,23 @@ public struct SpaceWindows: Codable, Equatable, Sendable {
         guard !locked, let i = index(id) else { return }
         windows[i].layoutWidth = max(layoutWidth, 200)
         windows[i].layoutHeight = max(layoutHeight, 200)
+    }
+
+    /// Gives a window's content (its layout size less [barHeight], the window keys under it) [shape]'s proportions,
+    /// keeping the content's area in points and the window's angular size about the same. Not while locked.
+    public mutating func shape(_ id: UUID, _ shape: WindowShape, barHeight: Double) {
+        guard !locked, let i = index(id) else { return }
+        let w = windows[i]
+        let contentH = max(w.layoutHeight - barHeight, 1)
+        let area = w.layoutWidth * contentH
+        let newW = (area * shape.ratio).squareRoot()
+        let newH = (area / shape.ratio).squareRoot()
+        let oldAspect = w.aspect
+        windows[i].layoutWidth = newW.rounded()
+        windows[i].layoutHeight = (newH + barHeight).rounded()
+        // The window's angular area stays about the same: width scales with the square root of the aspect's change.
+        let k = (windows[i].aspect / oldAspect).squareRoot()
+        windows[i].widthDeg = min(max(w.widthDeg * k, SpaceLayout.minWidthDeg), SpaceLayout.maxWidthDeg)
     }
 
     /// Snaps a window next to a neighbour whose facing edge is within [snapDeg], one gap apart and at the same

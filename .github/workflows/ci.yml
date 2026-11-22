@@ -129,6 +129,7 @@ jobs:
           jq -e '.listScrollTop > 100' out/space.json
           jq -e '.lockedMoveBlocked and .arrangedWithoutOverlap' out/space.json
           jq -e '.keyboardStayedDown' out/space.json
+          jq -e '.shapedToPhone and .controlCenterLocked and .closedByWindowKey and .sideBySideOn' out/space.json
           test -s out/glasses-1920x1080.png
           test -s out/glasses-3840x1080.png
 

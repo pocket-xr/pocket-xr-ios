@@ -87,6 +87,22 @@ func windowChecks() {
     room.makeRoom(for: extra.id)
     check(room.overlapping(room.window(extra.id)!) == nil, "makeRoom clears the overlap")
 
+    // Shapes: the content gets the ratio, about the same area, unchanged when locked.
+    var sh = SpaceWindows()
+    let sw = sh.open(.web(url: "s"), title: "S", layoutWidth: 1280, layoutHeight: 856, at: SpaceAim(yawDeg: 0, pitchDeg: 0))!
+    sh.shape(sw.id, .phone, barHeight: 56)
+    let shaped = sh.window(sw.id)!
+    check(WindowShape.current(width: shaped.layoutWidth, height: shaped.layoutHeight - 56) == .phone, "shape gives 9:16 content")
+    check(abs(shaped.layoutWidth * (shaped.layoutHeight - 56) / (1280 * 800) - 1) < 0.01, "shape keeps the area")
+    check(shaped.widthDeg < sw.widthDeg, "a portrait window is narrower in degrees")
+    sh.shape(sw.id, .wide, barHeight: 56)
+    check(WindowShape.current(width: sh.window(sw.id)!.layoutWidth, height: sh.window(sw.id)!.layoutHeight - 56) == .wide, "back to 16:9")
+    sh.locked = true
+    let shBefore = sh
+    sh.shape(sw.id, .square, barHeight: 56)
+    check(sh == shBefore, "no shape change while locked")
+    check(WindowShape.current(width: 1280, height: 800) == nil && WindowShape.current(width: 1920, height: 1080) == .wide, "current shape")
+
     // Focus order follows the windows left to right (yaw falling), wrapping.
     var f = u
     let leftmost = f.windows.max { $0.yawDeg < $1.yawDeg }!.id

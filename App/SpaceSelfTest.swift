@@ -17,6 +17,10 @@ enum SpaceSelfTest {
         var lockedMoveBlocked = false
         /// After clicking into the web field, the key catcher holds the focus and no keyboard is up.
         var keyboardStayedDown = false
+        var shapedToPhone = false
+        var controlCenterLocked = false
+        var closedByWindowKey = false
+        var sideBySideOn = false
         var arrangedWithoutOverlap = false
         var errors = [String]()
         var done = false
@@ -123,6 +127,53 @@ enum SpaceSelfTest {
         r.lockedMoveBlocked = c.space.window(a)?.yawDeg == yaw
         c.setLocked(false)
         c.recentre()
+
+        // Control Center: open it, click "Lock screens" and a shape, read the results back.
+        if let cid = c.openControlCenter(), let host = c.host(cid), let panel = host.content as? ControlCenterPanel {
+            c.focusForTest(a)
+            panel.refresh()
+            host.layoutIfNeeded()
+            let lock = panel.lockSwitchForTest
+            let lockMid = lock.convert(CGPoint(x: lock.bounds.midX, y: lock.bounds.midY), to: host)
+            c.aim(at: cid, u: Double(lockMid.x / host.bounds.width), v: Double(lockMid.y / host.bounds.height))
+            c.click()
+            r.controlCenterLocked = c.space.locked
+            c.setLocked(false)
+            c.focusForTest(a)
+            panel.refresh()
+            host.layoutIfNeeded()
+            if let phone = panel.shapeButtonForTest(.phone) {
+                let mid = phone.convert(CGPoint(x: phone.bounds.midX, y: phone.bounds.midY), to: host)
+                c.aim(at: cid, u: Double(mid.x / host.bounds.width), v: Double(mid.y / host.bounds.height))
+                c.focusForTest(a)
+                // A click focuses the window it lands on; the shape keys act on the web window focused before, so
+                // the Control Center keeps the last web window as "This window".
+                c.click()
+                if let w = c.space.window(a) {
+                    r.shapedToPhone = WindowShape.current(width: w.layoutWidth, height: w.layoutHeight - Double(WindowHost.barHeight)) == .phone
+                        && c.host(a)?.bounds.width == CGFloat(w.layoutWidth)
+                }
+                if !r.shapedToPhone { r.errors.append("shape did not reach the window") }
+            } else {
+                r.errors.append("no shape button")
+            }
+        } else {
+            r.errors.append("no Control Center")
+        }
+
+        // A window key: Close on the second test page's bar.
+        if let host = c.host(b) {
+            let closeX = host.bounds.width - 40, barY = host.bounds.height - WindowHost.barHeight / 2
+            c.aim(at: b, u: Double(closeX / host.bounds.width), v: Double(barY / host.bounds.height))
+            if c.hover?.id != b { r.errors.append("pointer not on the second page's bar") }
+            c.click()
+            r.closedByWindowKey = c.space.window(b) == nil
+        }
+
+        // Side by side, as for glasses in 3D: left on for the screenshot CI takes afterwards.
+        c.view.forceSideBySide = true
+        c.view.layoutIfNeeded()
+        r.sideBySideOn = c.view.sideBySide
 
         r.done = true
         AppLog.line("demo: done, \(r.errors.isEmpty ? "no errors" : r.errors.joined(separator: "; "))")

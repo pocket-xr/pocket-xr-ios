@@ -31,6 +31,9 @@ final class SpaceController: ObservableObject {
     private(set) var pointerDistance = SpaceLayout.defaultDistance
     private(set) var hover: SpaceHit?
     private(set) var head = Quat.identity
+    /// Head tracking choices (Control Center): tracking on or off, stay in place or Smooth Follow; drawing smoothing
+    /// and the Still lock on, as on the other platforms.
+    @Published private(set) var tracking = SpaceSettings()
     private var lookYawDeg = 0.0
     private var lookPitchDeg = 0.0
     private var hosts = [UUID: WindowHost]()
@@ -76,20 +79,21 @@ final class SpaceController: ObservableObject {
 
     // MARK: Each frame
 
-    var tracking: Bool { Probe.shared.snapshot.link == .streaming }
+    /// Head tracking is drawing the Space: the glasses' sensor stream is up and tracking is switched on.
+    var tracked: Bool { tracking.headTracking && Probe.shared.snapshot.link == .streaming }
 
     /// The view's direction (yaw, pitch).
     var viewAim: SpaceAim { SpaceAim.of(head.rotate(SIMD3(0, 0, -1))) }
 
-    func tick(now: Double, view: SpaceView) {
-        if tracking {
-            head = Probe.shared.view()
+    func tick(now: Double, period: Double, view: SpaceView) {
+        if tracked {
+            head = Probe.shared.drawPose(now: now, framePeriod: period, options: TrackingOptions(tracking))
         } else {
             head = Quat.aboutY(lookYawDeg * .pi / 180) * Quat.aboutX(lookPitchDeg * .pi / 180)
         }
         let (hx, hy) = view.halfFovDeg
         let over = pointer.keep(inside: viewAim, halfWidthDeg: hx, halfHeightDeg: hy)
-        if !tracking, over.yawDeg != 0 || over.pitchDeg != 0 {
+        if !tracked, over.yawDeg != 0 || over.pitchDeg != 0 {
             // No head tracking: pushing the pointer past the edge looks that way.
             lookYawDeg = SpaceAim.wrap(lookYawDeg + over.yawDeg)
             lookPitchDeg = min(max(lookPitchDeg + over.pitchDeg, -60), 60)
@@ -218,6 +222,36 @@ final class SpaceController: ObservableObject {
         if mode != .none && space.locked && mode != .moveAll { mode = .none }
     }
 
+    /// The web window last focused, which the Control Center's This window row acts on.
+    private(set) var lastWeb: UUID?
+
+    /// Gives the last focused web window one of the common shapes.
+    func shapeFocused(_ shape: WindowShape) {
+        guard let id = lastWeb, let w = space.window(id), case .web = w.kind else { return }
+        space.shape(id, shape, barHeight: Double(WindowHost.barHeight))
+        if let n = space.window(id), let host = hosts[id] {
+            host.bounds = CGRect(x: 0, y: 0, width: n.layoutWidth, height: n.layoutHeight)
+        }
+        changed()
+    }
+
+    /// The focused web window, for the Control Center's This window row.
+    var focusedWeb: SpaceWindow? {
+        guard let id = lastWeb, let w = space.window(id), case .web = w.kind else { return nil }
+        return w
+    }
+
+    func setHeadTracking(_ on: Bool) {
+        tracking.headTracking = on
+        recentre()
+        changed()
+    }
+
+    func setFollow(_ on: Bool) {
+        tracking.trackingMode = on ? .smoothFollow : .bodyAnchor
+        changed()
+    }
+
     func setLocked(_ on: Bool) {
         space.locked = on
         if on { mode = .none }
@@ -226,7 +260,7 @@ final class SpaceController: ObservableObject {
     }
 
     func recentre() {
-        if tracking { Probe.shared.recentre() }
+        if tracked { Probe.shared.recentre() }
         lookYawDeg = 0
         lookPitchDeg = 0
         pointer = SpacePointer()
@@ -235,7 +269,7 @@ final class SpaceController: ObservableObject {
     /// Turns the view so the focused window is in front when there is no head tracking.
     private func bringFocusedIntoView() {
         guard let id = space.focused, let w = space.window(id) else { return }
-        if !tracking {
+        if !tracked {
             lookYawDeg = w.yawDeg
             lookPitchDeg = w.pitchDeg
         }
@@ -386,6 +420,12 @@ final class SpaceController: ObservableObject {
         changed()
     }
 
+    /// Focuses a window without a click (the self-test).
+    func focusForTest(_ id: UUID) {
+        space.focus(id)
+        changed(save: false)
+    }
+
     /// The host of a window, for the self-test.
     func host(_ id: UUID) -> WindowHost? { hosts[id] }
 
@@ -401,11 +441,13 @@ final class SpaceController: ObservableObject {
     private struct Saved: Codable {
         var space: SpaceWindows
         var presets: [SavedLayout]
+        var tracking: SpaceSettings?
     }
 
     private static let key = "space.v1"
 
     private func changed(save: Bool = true) {
+        if let f = space.focused, let w = space.window(f), case .web = w.kind { lastWeb = f }
         controlPanel?.refresh()
         guard save else { return }
         saveTimer?.invalidate()
@@ -417,7 +459,7 @@ final class SpaceController: ObservableObject {
     func saveNow() {
         var s = space
         s.windows = s.windows.filter { $0.kind != .controlCenter }
-        if let data = try? JSONEncoder().encode(Saved(space: s, presets: presets)) {
+        if let data = try? JSONEncoder().encode(Saved(space: s, presets: presets, tracking: tracking)) {
             UserDefaults.standard.set(data, forKey: Self.key)
         }
     }
@@ -427,5 +469,6 @@ final class SpaceController: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: Self.key), let s = try? JSONDecoder().decode(Saved.self, from: data) else { return }
         space = s.space
         presets = s.presets
+        if let t = s.tracking { tracking = t }
     }
 }
