@@ -33,6 +33,15 @@ jobs:
           sudo xcode-select -s "$XC/Contents/Developer"
           xcodebuild -version
 
+      - name: Make Moonlight's three copies (PC screens)
+        run: bash scripts/gen-moonlight.sh
+
+      - name: ALVR's client core for PC VR (made by the ALVR workflow)
+        uses: actions/cache/restore@v4
+        with:
+          path: Native/alvr/AlvrClientCore.xcframework
+          key: alvr-ios-e8ca92b-${{ hashFiles('scripts/build-alvr.sh', 'Native/alvr/alvr-pocketxr.patch', 'Native/alvr/alvr_client_core.h') }}
+
       - name: Make the Xcode project
         run: |
           brew install xcodegen
@@ -50,7 +59,8 @@ jobs:
           AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
           xcodebuild -project PocketXR.xcodeproj -scheme PocketXR -configuration Release \
             -destination 'generic/platform=iOS' -archivePath build/PocketXR.xcarchive \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} "${AUTH[@]}" archive | tail -30
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} "${AUTH[@]}" archive > archive.log 2>&1             || { grep -E "error:|error -|No profiles|Signing" archive.log | sort -u | head -40; exit 1; }
+          tail -3 archive.log
           cat > build/ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -64,6 +74,7 @@ jobs:
           </dict></plist>
           EOF
           xcodebuild -exportArchive -archivePath build/PocketXR.xcarchive -exportOptionsPlist build/ExportOptions.plist \
-            -exportPath build/export "${AUTH[@]}" | tail -30
+            -exportPath build/export "${AUTH[@]}" > export.log 2>&1 || { grep -iE "error|fail" export.log | sort -u | head -40; exit 1; }
+          tail -8 export.log
           rm -f "$KEY"
           echo "Uploaded build ${{ github.run_number }}. It shows in App Store Connect, TestFlight, after Apple's processing (usually 5-30 minutes)."
