@@ -1,0 +1,40 @@
+name: ALVR for iOS
+
+# Builds ALVR's client core for iPhone, iPad and the Simulator (scripts/build-alvr.sh) and keeps it in the Actions
+# cache, so CI's app build can link it without building Rust each time. Runs by hand, or when the script or patch
+# changes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scripts/build-alvr.sh', 'Native/alvr/**', '.github/workflows/alvr.yml']
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XC/Contents/Developer"
+
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: Native/alvr/AlvrClientCore.xcframework
+          key: alvr-ios-e8ca92b-${{ hashFiles('scripts/build-alvr.sh', 'Native/alvr/alvr-pocketxr.patch', 'Native/alvr/alvr_client_core.h') }}
+
+      - name: Build ALVR's client core
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          rustc --version || curl -sSf https://sh.rustup.rs | sh -s -- -y
+          source "$HOME/.cargo/env" 2>/dev/null || true
+          bash scripts/build-alvr.sh
+
+      - name: What was made
+        run: |
+          find Native/alvr/AlvrClientCore.xcframework -name '*.a' -exec ls -la {} \;
+          nm -gU Native/alvr/AlvrClientCore.xcframework/ios-arm64/libalvr_client_core.a 2>/dev/null | grep -E " _alvr_(initialize|send_tracking|set_decoder_input_callback|get_total_prediction_offset_ns)$" | sort -u
