@@ -43,7 +43,15 @@ enum SpaceSelfTest {
 
     /// Aims at an element's middle on a web window and clicks, as a trackpad tap would.
     private static func clickElement(_ c: SpaceController, _ id: UUID, _ web: WKWebView, _ element: String, _ r: inout Results) async {
-        guard let host = c.host(id) else { r.errors.append("no host"); return }
+        guard await aimElement(c, id, web, element, &r) else { return }
+        c.click()
+        await wait(0.6)
+    }
+
+    /// Aims the pointer at an element's middle. The head keeps turning (the fake glasses swing it), and each frame
+    /// keeps the pointer inside the view, so whatever uses the aim must follow straight after, with no wait between.
+    private static func aimElement(_ c: SpaceController, _ id: UUID, _ web: WKWebView, _ element: String, _ r: inout Results) async -> Bool {
+        guard let host = c.host(id) else { r.errors.append("no host"); return false }
         var xy: [Double]?
         for _ in 0..<10 {
             let raw = await js(web, "typeof __pxrRect === 'function' ? __pxrRect('\(element)') : 'not ready'")
@@ -51,11 +59,10 @@ enum SpaceSelfTest {
             AppLog.line("demo: rect for \(element): \(String(describing: raw))")
             await wait(0.3)
         }
-        guard let xy = xy else { r.errors.append("no rect for \(element)"); return }
+        guard let xy = xy else { r.errors.append("no rect for \(element)"); return false }
         c.aim(at: id, u: xy[0] / Double(host.bounds.width), v: xy[1] / Double(host.bounds.height))
-        if c.hover?.id != id { r.errors.append("pointer on another window for \(element)") }
-        c.click()
-        await wait(0.6)
+        if c.hover?.id != id { r.errors.append("pointer on another window for \(element)"); return false }
+        return true
     }
 
     static func run() async {
@@ -98,10 +105,9 @@ enum SpaceSelfTest {
         r.fieldValue = await js(web, "document.getElementById('field').value") as? String ?? ""
 
         // Scroll the list with two fingers' worth of movement.
-        await clickElement(c, a, web, "list", &r)
-        c.scroll(dx: 0, dy: 400)
+        if await aimElement(c, a, web, "list", &r) { c.scroll(dx: 0, dy: 400) }
         await wait(0.5)
-        r.listScrollTop = await js(web, "document.getElementById('list').scrollTop") as? Double ?? 0
+        r.listScrollTop = (await js(web, "document.getElementById('list').scrollTop") as? NSNumber)?.doubleValue ?? 0
 
         // Open a site from the launcher: aim at the Test page tile and click.
         if let lid = c.space.windows.first(where: { $0.kind == .launcher })?.id, let host = c.host(lid),
