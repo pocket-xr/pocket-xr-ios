@@ -154,12 +154,16 @@ enum SpaceSelfTest {
 
         // Control Center: open it, click "Lock screens" and a shape, read the results back.
         if let cid = c.openControlCenter(), let host = c.host(cid), let panel = host.content as? ControlCenterPanel {
+            c.makeRoomForTest(cid)
             c.focusForTest(a)
             panel.refresh()
             host.layoutIfNeeded()
             let lock = panel.lockSwitchForTest
             let lockMid = lock.convert(CGPoint(x: lock.bounds.midX, y: lock.bounds.midY), to: host)
             c.aim(at: cid, u: Double(lockMid.x / host.bounds.width), v: Double(lockMid.y / host.bounds.height))
+            if c.hover?.id != cid {
+                r.errors.append("pointer not on the Control Center's lock switch but on \(c.hover.flatMap { c.space.window($0.id)?.title } ?? "nothing")")
+            }
             c.click()
             r.controlCenterLocked = c.space.locked
             c.setLocked(false)
