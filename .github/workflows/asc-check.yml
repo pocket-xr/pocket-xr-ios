@@ -1,0 +1,45 @@
+name: App Store Connect check
+
+# Signs in to App Store Connect's API with the repo's secrets and prints only answer codes and counts, never a value:
+# whether the key works, whether the bundle id is registered and the app record exists. Run by hand.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          pip install --quiet pyjwt cryptography requests
+          python3 - <<'PY'
+          import os, re, time, jwt, requests
+          kid = os.environ["ASC_KEY_ID"].strip()
+          iss = os.environ["ASC_ISSUER_ID"].strip()
+          p8 = os.environ["ASC_KEY_P8"].replace("\r", "").strip() + "\n"
+          print("key id: %d characters, letters and digits only: %s" % (len(kid), bool(re.fullmatch(r"[A-Z0-9]+", kid))))
+          print("issuer id: %d characters, looks like a UUID: %s" % (len(iss), bool(re.fullmatch(r"[0-9a-f-]{36}", iss))))
+          print("key file: begins and ends as a private key: %s, %d lines" % (
+              p8.startswith("-----BEGIN PRIVATE KEY-----") and p8.rstrip().endswith("-----END PRIVATE KEY-----"), p8.count("\n")))
+          try:
+              token = jwt.encode({"iss": iss, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"},
+                                 p8, algorithm="ES256", headers={"kid": kid, "typ": "JWT"})
+          except Exception as e:
+              print("the key file could not sign: %s" % type(e).__name__)
+              raise SystemExit(1)
+          h = {"Authorization": "Bearer " + token}
+          def get(path):
+              r = requests.get("https://api.appstoreconnect.apple.com" + path, headers=h, timeout=30)
+              n = len(r.json().get("data", [])) if r.headers.get("content-type", "").startswith("application/json") and r.ok else 0
+              err = "" if r.ok else " (" + "; ".join(e.get("title", "") for e in r.json().get("errors", [])) + ")" if r.headers.get("content-type", "").startswith("application/json") else ""
+              return r.status_code, n, err
+          print("sign in, list apps: HTTP %s, %s apps%s" % get("/v1/apps?limit=200"))
+          print("bundle id com.hayeco.pocketxr.ios registered: HTTP %s, %s found%s" % get("/v1/bundleIds?filter%5Bidentifier%5D=com.hayeco.pocketxr.ios"))
+          print("app record for it: HTTP %s, %s found%s" % get("/v1/apps?filter%5BbundleId%5D=com.hayeco.pocketxr.ios"))
+          print("certificates the key can see: HTTP %s, %s%s" % get("/v1/certificates?limit=200"))
+          PY

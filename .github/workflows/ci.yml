@@ -5,9 +5,9 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore: ['docs/**', '**.md', 'scripts/build-alvr.sh', '.github/workflows/alvr.yml', '.github/workflows/testflight.yml', '.github/workflows/screenshots.yml']
+    paths-ignore: ['docs/**', '**.md', 'scripts/build-alvr.sh', '.github/workflows/alvr.yml', '.github/workflows/testflight.yml', '.github/workflows/screenshots.yml', '.github/workflows/asc-check.yml']
   pull_request:
-    paths-ignore: ['docs/**', '**.md', 'scripts/build-alvr.sh', '.github/workflows/alvr.yml', '.github/workflows/testflight.yml', '.github/workflows/screenshots.yml']
+    paths-ignore: ['docs/**', '**.md', 'scripts/build-alvr.sh', '.github/workflows/alvr.yml', '.github/workflows/testflight.yml', '.github/workflows/screenshots.yml', '.github/workflows/asc-check.yml']
   workflow_dispatch:
 
 concurrency:
