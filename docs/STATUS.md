@@ -124,8 +124,8 @@ tile's live SteamVR state.
 | App Store listing, keywords, review notes, release checks (docs/APPSTORE-LISTING.md) | Drafted for Mike; nothing entered anywhere |
 | Screenshots: iPhone 6.9" (1320x2868) and iPad 13" (2064x2752): the Space, the tour, Settings (docs/appstore-screenshots, Screenshots workflow run 44983360335) | Made in the Simulator. The Space picture crops the two windows at its edges and shows Hacker News and Wikipedia; photos through real glasses would show the app better. |
 | GPL question for the App Store (moonlight-common-c) | Draft note to Moonlight's developers in docs/APPSTORE-LISTING.md; not sent, Mike's call |
-| App Store Connect: bundle id, app record, API key, repo secrets (docs/APPSTORE-SETUP.md) | **Waiting for Mike** |
-| TestFlight upload (the TestFlight workflow) | Not run: needs the API key secrets |
+| App Store Connect: bundle id, app record, API key, repo secrets (docs/APPSTORE-SETUP.md) | **Done by Mike**, 22 Nov 2026. The first try failed (401): the Issuer ID secret held 200 characters, not 36; the App Store Connect check workflow found it, and Mike set it again. |
+| TestFlight upload (the TestFlight workflow) | **Uploaded**: Pocket XR 0.1.0 build 2, run 44985413995 (22 Nov 2026, 04:33 UTC), signed by Apple's cloud signing with the API key. Apple's processing and TestFlight itself not yet seen. Apple warned that from April 2027 uploads need the iOS 27 SDK. |
 
 ## Only a real device can prove
 
