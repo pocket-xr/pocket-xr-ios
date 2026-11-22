@@ -16,6 +16,8 @@ if [ ! -d "$WORK/.git" ]; then
 fi
 cd "$WORK"
 git checkout -q --force "$COMMIT"
+# alvr_session reads OpenVR's driver header at build time: only that submodule is needed.
+git submodule update --init --depth 1 openvr
 git apply "$ROOT/Native/alvr/alvr-pocketxr.patch"
 echo "build-alvr: ALVR $(git log --oneline -1) with Pocket XR's patch"
 
