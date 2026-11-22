@@ -28,9 +28,9 @@ final class WindowHost: UIView {
     private let lockBadge = UIImageView(image: UIImage(systemName: "lock.fill"))
     var onAction: ((String) -> Void)?
 
-    var focused = false {
+    var isActiveWindow = false {
         didSet {
-            guard focused != oldValue else { return }
+            guard isActiveWindow != oldValue else { return }
             updateRim()
         }
     }
@@ -96,7 +96,7 @@ final class WindowHost: UIView {
     }
 
     private func updateRim() {
-        layer.borderColor = focused
+        layer.borderColor = isActiveWindow
             ? UIColor(red: 0.35, green: 0.58, blue: 1, alpha: 0.95).cgColor
             : UIColor.white.withAlphaComponent(0.14).cgColor
     }
@@ -109,7 +109,7 @@ final class WindowHost: UIView {
         if onBar(p) {
             let q = convert(p, to: bar)
             if let hit = bar.hitTest(q, with: nil), let c = hit as? UIControl ?? hit.superviewControl {
-                if let b = c as? UIButton { b.performPrimaryAction() } else { c.sendActions(for: .touchUpInside) }
+                if let b = c as? UIButton { b.sendActions(for: .primaryActionTriggered) } else { c.sendActions(for: .touchUpInside) }
             }
             return
         }
@@ -329,7 +329,7 @@ class PanelContent: NSObject, SpaceContent {
                 seg.sendActions(for: .valueChanged)
             }
         } else if let b = c as? UIButton {
-            b.performPrimaryAction()
+            b.sendActions(for: .primaryActionTriggered)
         } else {
             c.sendActions(for: .touchUpInside)
         }

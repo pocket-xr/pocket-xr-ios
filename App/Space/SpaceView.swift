@@ -101,7 +101,7 @@ final class SpaceView: UIView {
         }
         for w in sorted {
             guard let h = hosts[w.id] else { continue }
-            h.focused = w.id == focused
+            h.isActiveWindow = w.id == focused
             let p = w.placement
             // Behind the head or nearly so: hidden (Core Animation cannot clip a layer crossing the eye).
             let mid = PanelCurve.point(p, x: 0, y: 0)
