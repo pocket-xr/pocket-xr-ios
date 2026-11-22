@@ -23,6 +23,11 @@ enum SpaceSelfTest {
         var sideBySideOn = false
         /// A PC screen against the stand-in computer CI runs (-PXRPcAddress), when there is one.
         var pc: PcScreenReport?
+        /// PC screen 2 at the same time, from the stand-in computer's second instance.
+        var pc2: PcScreenReport?
+        /// Readability: a web window's zoom, and PC screen 1's stream size after it starts again.
+        var readabilityZoom = 0.0
+        var readabilityPcWidth = 0
         var arrangedWithoutOverlap = false
         var errors = [String]()
         var done = false
@@ -185,15 +190,34 @@ enum SpaceSelfTest {
         // A PC screen: CI runs Pocket XR for Mac's computer side (its test picture) and gives the PIN.
         if UserDefaults.standard.string(forKey: "PXRPcAddress") != nil {
             if let pid = c.openPcScreen(), let host = c.host(pid), let pc = host.content as? PcScreenContent {
-                for _ in 0..<90 {
-                    if pc.report().framesShown > 90 { break }
+                // PC screen 2 at the same time, when CI gives a second address.
+                let second = UserDefaults.standard.string(forKey: "PXRPcAddress2") != nil ? c.openPcScreen() : nil
+                let pc2 = second.flatMap { c.host($0)?.content as? PcScreenContent }
+                for _ in 0..<120 {
+                    if pc.report().framesShown > 90 && (pc2 == nil || pc2!.report().framesShown > 90) { break }
                     await wait(0.5)
                 }
+                r.pc2 = pc2?.report()
                 // A click in the picture's middle goes to the computer as a mouse move and click.
                 pc.click(at: CGPoint(x: host.bounds.midX, y: (host.bounds.height - WindowHost.barHeight) / 2))
                 await wait(1)
                 r.pc = pc.report()
                 AppLog.line("demo: PC screen \(r.pc!.state), \(r.pc!.framesShown) frames shown of \(r.pc!.framesIn), sound \(r.pc!.audioDecoded)/\(r.pc!.audioPackets)")
+                if let r2 = r.pc2 { AppLog.line("demo: PC screen 2 \(r2.state), \(r2.framesShown) frames shown of \(r2.framesIn)") }
+
+                // Readability: web windows zoom by 4/3; PC screen 1 starts again at 3/4 of the pixels.
+                c.setReadability(true)
+                if let web = c.space.windows.compactMap({ c.host($0.id)?.content as? WebContent }).first {
+                    r.readabilityZoom = Double(web.web.pageZoom)
+                }
+                for _ in 0..<60 {
+                    let now = pc.report()
+                    if now.width < 1920 && now.framesShown > 10 { break }
+                    await wait(0.5)
+                }
+                r.readabilityPcWidth = pc.report().width
+                AppLog.line("demo: Readability: web zoom \(r.readabilityZoom), PC screen 1 at \(pc.report().width)x\(pc.report().height), \(pc.report().framesShown) frames")
+                c.lookForTest(pid)
             } else {
                 r.errors.append("no PC screen")
             }

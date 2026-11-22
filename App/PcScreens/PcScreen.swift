@@ -78,8 +78,11 @@ final class PcScreenContent: NSObject, SpaceContent {
         streaming = false
         stream = nil
         lostAt = nil
-        Task.detached { s.stop() }
-        Task { await connect() }
+        // The same copy of the core must have stopped before it starts again.
+        Task {
+            await Task.detached { s.stop() }.value
+            await connect()
+        }
     }
 
     var view: UIView { root }
@@ -105,7 +108,8 @@ final class PcScreenContent: NSObject, SpaceContent {
             say.centerXAnchor.constraint(equalTo: root.centerXAnchor), say.centerYAnchor.constraint(equalTo: root.centerYAnchor),
             say.widthAnchor.constraint(lessThanOrEqualTo: root.widthAnchor, multiplier: 0.8),
         ])
-        if let typed = UserDefaults.standard.string(forKey: "PXRPcAddress"), store.address.isEmpty {
+        let typedKey = slot == 0 ? "PXRPcAddress" : "PXRPcAddress\(slot + 1)"
+        if let typed = UserDefaults.standard.string(forKey: typedKey), store.address.isEmpty {
             store.address = typed
             store.save(slot)
         }
@@ -175,7 +179,19 @@ final class PcScreenContent: NSObject, SpaceContent {
         show("Looking for computers…")
         let slot = self.slot
         let taken = Set((0..<3).filter { $0 != slot }.map { PcScreenStore.load($0).address })
+        // Computers that announce Moonlight's service (Pocket XR's computer side, Apollo, Sunshine), by mDNS.
+        let announced = await PcFinder.browse(seconds: 2)
+        AppLog.line("pc screen \(slot + 1): mDNS found \(announced.count): \(announced.map { "\($0.name) \($0.host):\($0.port)" }.joined(separator: ", "))")
         let found: (String, String)? = await Task.detached {
+            for f in announced where !taken.contains("\(f.host):\(f.port)") {
+                let http = NvHttp(host: f.host, httpPort: f.port, httpsPort: 0, serverCert: nil, identity: PcIdentity.shared!)
+                if (try? await http.serverInfo(timeout: 1.5)) != nil {
+                    let order = slot == 0 || announced.filter({ $0.host == f.host }).count < 2 ? announced : Array(announced.reversed())
+                    if let pick = order.first(where: { $0.host == f.host && !taken.contains("\($0.host):\($0.port)") }) {
+                        return ("\(pick.host):\(pick.port)", PcScreenPick.pcName(pick.name))
+                    }
+                }
+            }
             for pc in PcHelperLink.findAll() {
                 let ports = pc.sunshinePorts.isEmpty ? [50989, 51989, 52989, 47989, 48989, 49989] : pc.sunshinePorts
                 var answering = [Int]()
@@ -191,8 +207,10 @@ final class PcScreenContent: NSObject, SpaceContent {
             return nil
         }.value
         guard let found else {
-            show("No computer found. On the computer, turn on \"Let my phone show this computer\" in Pocket XR for Windows, Mac or Steam Deck.")
+            show("No computer found. On the computer, turn on \"Let my phone show this computer\" in Pocket XR for Windows, Mac or "
+                 + "Steam Deck, or run Apollo or Sunshine.\nOr type its address with the Keyboard key, then Return:")
             state = "none found"
+            typing = ""
             return false
         }
         store.address = found.0
@@ -214,13 +232,16 @@ final class PcScreenContent: NSObject, SpaceContent {
             let shown = self
             Task.detached {
                 guard let helper = PcHelperLink.find(at: host) else {
-                    await MainActor.run { shown.show("On \(name), type the PIN \(pin) when it asks.") }
+                    await MainActor.run {
+                        shown.show("On \(name), type the PIN \(pin) in Apollo's or Sunshine's PIN page (https://\(host):\(port + 1)/pin), "
+                                   + "or in Pocket XR there when it asks.")
+                    }
                     return
                 }
                 if !PcHelperLink.knows(helper) {
                     await MainActor.run { shown.show("On \(helper.name), say Yes to let this phone show it (once).") }
                     guard PcHelperLink.pair(helper) else {
-                        await MainActor.run { shown.show("\(helper.name) did not allow this phone. Type the PIN \(pin) there instead.") }
+                        await MainActor.run { shown.show("\(helper.name) did not allow this phone. Type the PIN \(pin) there instead (https://\(host):\(port + 1)/pin for Apollo or Sunshine).") }
                         return
                     }
                 }
@@ -405,9 +426,29 @@ final class PcScreenContent: NSObject, SpaceContent {
         if dx != 0 { s.hscroll(Int(dx * 1.5)) }
     }
 
+    /// The address being typed after no computer was found; nil when not asking for one.
+    private var typing: String?
+
     func type(_ text: String) {
+        if var t = typing {
+            t += text.filter { $0.isLetter || $0.isNumber || ".:-[]%".contains($0) }
+            typing = t
+            say.text = lastSay + "\n\n" + t
+            return
+        }
         guard streaming, let s = stream else { return }
         s.text(text)
+    }
+
+    /// The typed address is used: this PC screen connects there.
+    private func useTyped() {
+        guard let t = typing?.trimmingCharacters(in: .whitespaces), !t.isEmpty else { return }
+        guard PcScreenStore.parse(t) != nil else { show("That is not an address: \(t)"); typing = ""; return }
+        typing = nil
+        store.address = t
+        store.save(slot)
+        lostAt = nil
+        Task { await connect() }
     }
 
     /// Key names as the Space sends them, to Windows virtual-key codes (the host maps them for a Mac or Linux).
@@ -417,8 +458,24 @@ final class PcScreenContent: NSObject, SpaceContent {
     ]
 
     func key(_ name: String) {
+        if var t = typing {
+            switch name {
+            case "Enter": useTyped()
+            case "Backspace": if !t.isEmpty { t.removeLast(); typing = t; say.text = lastSay + "\n\n" + t }
+            case "Escape": typing = ""; say.text = lastSay
+            default: break
+            }
+            return
+        }
         guard streaming, let s = stream, let vk = Self.keys[name] else { return }
         s.key(vk)
+    }
+
+    /// For the self-test: an address typed as the user would.
+    func typeAddressForTest(_ address: String) {
+        typing = ""
+        type(address)
+        key("Enter")
     }
 
     /// Back on a PC screen: the browser's Back key.

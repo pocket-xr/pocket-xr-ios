@@ -469,6 +469,14 @@ final class SpaceController: ObservableObject {
         changed(save: false)
     }
 
+    /// Turns the view to a window and stops head tracking from turning it away (the self-test's screenshot).
+    func lookForTest(_ id: UUID) {
+        tracking.headTracking = false
+        space.focus(id)
+        bringFocusedIntoView()
+        changed(save: false)
+    }
+
     /// Moves a window clear of the others (the self-test).
     func makeRoomForTest(_ id: UUID) {
         space.makeRoom(for: id)

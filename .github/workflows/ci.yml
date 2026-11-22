@@ -83,7 +83,7 @@ jobs:
             PXR_HOST_TEST=1 "$HOST" --host --seconds 500 > host.log 2>&1 &
             # The PIN the app shows (-PXRPcPin) given to the host, again and again while it may be pairing.
             (for i in $(seq 1 60); do "$HOST" --host-pin 4321 >/dev/null 2>&1 || true; sleep 2; done) &
-            PC_ARGS=(-PXRPcAddress 127.0.0.1:50989 -PXRPcPin 4321)
+            PC_ARGS=(-PXRPcAddress 127.0.0.1:50989 -PXRPcAddress2 127.0.0.1:51989 -PXRPcPin 4321)
           fi
           UDID=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | test("iOS-26")) | .value[] | select(.name | test("^iPhone"))][0].udid')
           xcrun simctl list runtimes
@@ -96,7 +96,7 @@ jobs:
           xcrun simctl launch --stdout="$PWD/app.log" --stderr="$PWD/app.log" "$UDID" com.hayeco.pocketxr.ios \
             -PXRProbeHost 127.0.0.1 -PXRSelfTest 20 -PXRDemo YES -PXRFreshSpace YES ${PC_ARGS[@]+"${PC_ARGS[@]}"}
           DATA=$(xcrun simctl get_app_container "$UDID" com.hayeco.pocketxr.ios data)
-          for i in $(seq 1 150); do
+          for i in $(seq 1 200); do
             [ -f "$DATA/Documents/selftest.json" ] && [ -f "$DATA/Documents/space.json" ] && break
             sleep 1
           done
@@ -163,6 +163,9 @@ jobs:
           set -euo pipefail
           jq '.pc' out/space.json
           jq -e '.pc.paired and .pc.framesShown > 30 and (.pc.videoLayerFailed | not)' out/space.json
+          jq '.pc2, .readabilityZoom, .readabilityPcWidth' out/space.json
+          jq -e '.pc2.paired and .pc2.framesShown > 30' out/space.json
+          jq -e '.readabilityZoom > 1.3 and .readabilityPcWidth == 1440' out/space.json
 
       - name: Check the PC screen's sound
         if: env.HOST != ''
