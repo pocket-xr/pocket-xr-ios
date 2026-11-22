@@ -10,7 +10,7 @@ private let accent = UIColor(red: 0.35, green: 0.58, blue: 1, alpha: 1)
 @MainActor
 private func label(_ text: String, size: CGFloat, weight: UIFont.Weight = .regular, color: UIColor = ink) -> UILabel {
     let l = UILabel()
-    l.text = text
+    l.text = L(text)
     l.font = .systemFont(ofSize: size, weight: weight)
     l.textColor = color
     return l
@@ -19,7 +19,7 @@ private func label(_ text: String, size: CGFloat, weight: UIFont.Weight = .regul
 @MainActor
 private func pill(_ title: String, symbol: String? = nil, filled: Bool = false, action: @escaping () -> Void) -> UIButton {
     var config = filled ? UIButton.Configuration.filled() : UIButton.Configuration.gray()
-    config.title = title
+    config.title = L(title)
     if let s = symbol {
         config.image = UIImage(systemName: s, withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
         config.imagePadding = 10
@@ -86,8 +86,8 @@ final class LauncherPanel: PanelContent {
         clock.textColor = ink2
         stack.addArrangedSubview(top)
 
-        field.placeholder = "Search or type an address"
-        field.attributedPlaceholder = NSAttributedString(string: "Search or type an address", attributes: [.foregroundColor: ink2])
+        field.placeholder = L("Search or type an address")
+        field.attributedPlaceholder = NSAttributedString(string: L("Search or type an address"), attributes: [.foregroundColor: ink2])
         field.font = .systemFont(ofSize: 26)
         field.textColor = ink
         field.backgroundColor = control
@@ -118,7 +118,7 @@ final class LauncherPanel: PanelContent {
                 row = r
             }
             var config = UIButton.Configuration.gray()
-            config.title = site.name
+            config.title = L(site.name)
             config.image = UIImage(systemName: site.symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 40, weight: .medium))
             config.imagePlacement = .top
             config.imagePadding = 12
@@ -170,7 +170,7 @@ final class ControlCenterPanel: PanelContent {
     private let lockSwitch = UISwitch()
     private let trackingSwitch = UISwitch()
     private let readabilitySwitch = UISwitch()
-    private let followControl = UISegmentedControl(items: ["Stay in place", "Smooth Follow"])
+    private let followControl = UISegmentedControl(items: [L("Stay in place"), L("Smooth Follow")])
     private let shapeRow = UIStackView()
     private let shapeTitle = UILabel()
     private let status = UILabel()
@@ -293,10 +293,10 @@ final class ControlCenterPanel: PanelContent {
         followControl.selectedSegmentIndex = c.tracking.trackingMode == .smoothFollow ? 1 : 0
         if let w = c.focusedWeb {
             let now = WindowShape.current(width: w.layoutWidth, height: w.layoutHeight - Double(WindowHost.barHeight))
-            shapeTitle.text = "This window: \(w.title)" + (now.map { "  (\($0.rawValue))" } ?? "")
+            shapeTitle.text = String(format: L("This window: %@"), w.title) + (now.map { "  (\($0.rawValue))" } ?? "")
             shapeRow.isHidden = false
         } else {
-            shapeTitle.text = "This window: click a web window first"
+            shapeTitle.text = L("This window: click a web window first")
             shapeRow.isHidden = true
         }
         let webCount = c.space.windows.filter { w in
@@ -305,9 +305,9 @@ final class ControlCenterPanel: PanelContent {
             default: return false
             }
         }.count
-        let tracking = c.tracked ? "Head tracking on"
-            : (Probe.shared.snapshot.link == .streaming ? "Head tracking off" : "No head tracking (drag the pointer to the edge to look around)")
-        status.text = "\(webCount) window\(webCount == 1 ? "" : "s").  \(tracking)"
+        let tracking = L(c.tracked ? "Head tracking on"
+            : (Probe.shared.snapshot.link == .streaming ? "Head tracking off" : "No head tracking (drag the pointer to the edge to look around)"))
+        status.text = String(format: L("Windows: %@"), "\(webCount)") + "   " + tracking
         arrangeRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let count = max(1, min(3, webCount))
         for layout in SpaceLayout.choices(count: count) {

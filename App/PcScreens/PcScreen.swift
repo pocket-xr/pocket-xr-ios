@@ -86,7 +86,10 @@ final class PcScreenContent: NSObject, SpaceContent {
     }
 
     var view: UIView { root }
-    var title: String { store.pcName.map { "\($0) (PC screen \(slot + 1))" } ?? "PC screen \(slot + 1)" }
+    var title: String {
+        let name = String(format: L("PC screen %@"), "\(slot + 1)")
+        return store.pcName.map { "\($0) (\(name))" } ?? name
+    }
     var onTitle: (() -> Void)?
 
     init(slot: Int) {
@@ -176,7 +179,7 @@ final class PcScreenContent: NSObject, SpaceContent {
     /// A computer for this PC screen: the Pocket XR helpers that answer, and their hosts' instances. The first instance
     /// no other PC screen uses; PC screen 1 the main one.
     private func find() async -> Bool {
-        show("Looking for computers…")
+        show(L("Looking for computers…"))
         let slot = self.slot
         let taken = Set((0..<3).filter { $0 != slot }.map { PcScreenStore.load($0).address })
         // Computers that announce Moonlight's service (Pocket XR's computer side, Apollo, Sunshine), by mDNS.
@@ -207,8 +210,8 @@ final class PcScreenContent: NSObject, SpaceContent {
             return nil
         }.value
         guard let found else {
-            show("No computer found. On the computer, turn on \"Let my phone show this computer\" in Pocket XR for Windows, Mac or "
-                 + "Steam Deck, or run Apollo or Sunshine.\nOr type its address with the Keyboard key, then Return:")
+            show(L("No computer found. On the computer, turn on \"Let my phone show this computer\" in Pocket XR for Windows, Mac or "
+                 + "Steam Deck, or run Apollo or Sunshine.\nOr type its address with the Keyboard key, then Return:"))
             state = "none found"
             typing = ""
             return false
@@ -228,18 +231,18 @@ final class PcScreenContent: NSObject, SpaceContent {
         do {
             let info = try await http.serverInfo()
             let name = PcScreenXml.value(info, "hostname") ?? host
-            show("Pairing with \(name)…")
+            show(String(format: L("Pairing with %@…"), name))
             let shown = self
             Task.detached {
                 guard let helper = PcHelperLink.find(at: host) else {
                     await MainActor.run {
-                        shown.show("On \(name), type the PIN \(pin) in Apollo's or Sunshine's PIN page (https://\(host):\(port + 1)/pin), "
-                                   + "or in Pocket XR there when it asks.")
+                        shown.show(String(format: L("On %1$@, type the PIN %2$@ in Apollo's or Sunshine's PIN page (%3$@), or in Pocket XR there when it asks."),
+                                          name, pin, "https://\(host):\(port + 1)/pin"))
                     }
                     return
                 }
                 if !PcHelperLink.knows(helper) {
-                    await MainActor.run { shown.show("On \(helper.name), say Yes to let this phone show it (once).") }
+                    await MainActor.run { shown.show(String(format: L("On %@, say Yes to let this phone show it (once)."), helper.name)) }
                     guard PcHelperLink.pair(helper) else {
                         await MainActor.run { shown.show("\(helper.name) did not allow this phone. Type the PIN \(pin) there instead (https://\(host):\(port + 1)/pin for Apollo or Sunshine).") }
                         return
@@ -252,7 +255,7 @@ final class PcScreenContent: NSObject, SpaceContent {
             let state = try await http.pair(serverInfo: info, pin: pin)
             AppLog.line("pc screen \(slot + 1): pair with \(name) at \(store.address): \(state.rawValue)")
             guard state == .paired, let cert = http.serverCert else {
-                show(state == .pinWrong ? "The PIN was wrong. Close this PC screen and open it again to try again." : "Pairing with \(name) did not work (\(state.rawValue)).")
+                show(state == .pinWrong ? L("The PIN was wrong. Close this PC screen and open it again to try again.") : "Pairing with \(name) did not work (\(state.rawValue)).")
                 self.state = "pair failed"
                 return false
             }
@@ -272,7 +275,7 @@ final class PcScreenContent: NSObject, SpaceContent {
     private func startStream(_ id: PcIdentity, fresh: Bool) async {
         guard let parsed = PcScreenStore.parse(store.address) else { return }
         let (host, port) = parsed
-        show("Connecting to \(store.pcName ?? host)…")
+        show(String(format: L("Connecting to %@…"), store.pcName ?? host))
         let http = NvHttp(host: host, httpPort: port, httpsPort: store.httpsPort, serverCert: store.serverCert, identity: id)
         activeHttp = http
         do {

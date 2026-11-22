@@ -42,6 +42,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 }
 
+/// A string in the phone's language (App/Resources/Localizable.xcstrings: the 11 languages Pocket XR for Android
+/// speaks); English when it has no translation.
+func L(_ s: String) -> String { NSLocalizedString(s, comment: "") }
+
 enum AppInfo {
     static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?" }
     static var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?" }

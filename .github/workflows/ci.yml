@@ -60,6 +60,11 @@ jobs:
           xcodebuild -project PocketXR.xcodeproj -scheme PocketXR -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build > build-sim.log 2>&1             || { grep -E "error:" build-sim.log | sort -u | head -60; exit 1; }
           tail -3 build-sim.log
+          # The 11 languages are in the app (the String Catalog compiled per language).
+          APP=build/Build/Products/Debug-iphonesimulator/PocketXR.app
+          ls -d "$APP"/*.lproj
+          plutil -p "$APP/de.lproj/Localizable.strings" | grep -q "Einstellungen"
+          plutil -p "$APP/ja.lproj/Localizable.strings" | grep -q "設定"
 
       - name: Build the stand-in computer (Pocket XR for Mac's computer side)
         continue-on-error: true

@@ -53,16 +53,16 @@ struct PhoneHome: View {
 
     private var statusLine: String {
         let p = model.probe
-        if p.link == .streaming { return String(format: "Head tracking %.0f Hz", p.imuRateHz) }
-        return model.display.connected ? "Glasses connected, no head tracking" : "No glasses"
+        if p.link == .streaming { return String(format: L("Head tracking %@ Hz"), "\(Int(p.imuRateHz))") }
+        return L(model.display.connected ? "Glasses connected, no head tracking" : "No glasses")
     }
 
     private var modeHint: String {
         switch space.mode {
-        case .move: return "Drag to move the window. Tap to finish."
-        case .resize: return "Drag to resize the window. Tap to finish."
-        case .depth: return "Drag up to push the window back, down to pull it closer. Tap to finish."
-        case .moveAll: return "Drag to move every window, pinch to resize them all. Tap to finish."
+        case .move: return L("Drag to move the window. Tap to finish.")
+        case .resize: return L("Drag to resize the window. Tap to finish.")
+        case .depth: return L("Drag up to push the window back, down to pull it closer. Tap to finish.")
+        case .moveAll: return L("Drag to move every window, pinch to resize them all. Tap to finish.")
         case .none: return ""
         }
     }
@@ -93,7 +93,7 @@ struct PhoneHome: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
-                Text(title).font(.caption2)
+                Text(L(title)).font(.caption2)
             }
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(on ? Color.accentColor.opacity(0.35) : Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))

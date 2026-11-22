@@ -61,7 +61,7 @@ struct SettingsView: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
         .fileExporter(isPresented: $showExport, document: exporting, contentType: .json, defaultFilename: exportName) { result in
-            if case .failure(let e) = result { message = "Not saved: \(e.localizedDescription)" } else { message = "Saved." }
+            if case .failure(let e) = result { message = e.localizedDescription } else { message = L("Saved.") }
         }
         .fileImporter(isPresented: Binding(get: { importing != nil }, set: { if !$0 { importing = nil } }),
                       allowedContentTypes: [.json]) { result in
@@ -70,12 +70,12 @@ struct SettingsView: View {
             guard case .success(let url) = result else { return }
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            guard let data = try? Data(contentsOf: url) else { message = "That file could not be read."; return }
+            guard let data = try? Data(contentsOf: url) else { message = L("That file could not be read."); return }
             switch kind {
             case .settings:
-                message = space.restoreSettings(data) ? "Settings restored." : "That is not a Pocket XR settings file."
+                message = L(space.restoreSettings(data) ? "Settings restored." : "That is not a Pocket XR settings file.")
             case .layouts:
-                message = space.importLayouts(data).map { "\($0) layouts imported." } ?? "That is not a Pocket XR layouts file."
+                message = space.importLayouts(data).map { String(format: L("Layouts imported: %@"), "\($0)") } ?? L("That is not a Pocket XR layouts file.")
             case nil:
                 break
             }
@@ -85,7 +85,7 @@ struct SettingsView: View {
     }
 
     private func export(_ data: Data?, name: String) {
-        guard let data else { message = "Nothing to save."; return }
+        guard let data else { message = L("Nothing to save."); return }
         exporting = JSONFile(data: data)
         exportName = name
         showExport = true
@@ -118,7 +118,7 @@ struct SetupCheckView: View {
                           systemImage: model.probe.link == .streaming ? "checkmark.circle.fill" : "xmark.circle")
                 }
                 Section("Steps") {
-                    ForEach(steps, id: \.self) { Text($0) }
+                    ForEach(steps, id: \.self) { Text(L($0)) }
                 }
             }
             .navigationTitle("Glasses setup check")
@@ -170,14 +170,14 @@ struct TourView: View {
                     let p = Self.pages[i]
                     VStack(spacing: 18) {
                         Image(systemName: p.symbol).font(.system(size: 64)).foregroundStyle(Color.accentColor)
-                        Text(p.title).font(.title2.bold())
-                        Text(p.text).font(.body).multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal, 24)
+                        Text(L(p.title)).font(.title2.bold())
+                        Text(L(p.text)).font(.body).multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal, 24)
                     }
                     .tag(i)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
-            Button(page == Self.pages.count - 1 ? "Start" : "Next") {
+            Button(L(page == Self.pages.count - 1 ? "Start" : "Next")) {
                 if page == Self.pages.count - 1 { finish() } else { withAnimation { page += 1 } }
             }
             .buttonStyle(.borderedProminent)
