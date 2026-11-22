@@ -163,9 +163,13 @@ enum SpaceSelfTest {
 
         // A window key: Close on the second test page's bar.
         if let host = c.host(b) {
+            c.makeRoomForTest(b)
             let closeX = host.bounds.width - 40, barY = host.bounds.height - WindowHost.barHeight / 2
             c.aim(at: b, u: Double(closeX / host.bounds.width), v: Double(barY / host.bounds.height))
-            if c.hover?.id != b { r.errors.append("pointer not on the second page's bar") }
+            if c.hover?.id != b {
+                let other = c.hover.flatMap { h in c.space.window(h.id) }.map { "\($0.kind)" } ?? "nothing"
+                r.errors.append("pointer not on the second page's bar but on \(other)")
+            }
             c.click()
             r.closedByWindowKey = c.space.window(b) == nil
         }

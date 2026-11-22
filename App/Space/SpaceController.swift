@@ -426,6 +426,12 @@ final class SpaceController: ObservableObject {
         changed(save: false)
     }
 
+    /// Moves a window clear of the others (the self-test).
+    func makeRoomForTest(_ id: UUID) {
+        space.makeRoom(for: id)
+        changed(save: false)
+    }
+
     /// The host of a window, for the self-test.
     func host(_ id: UUID) -> WindowHost? { hosts[id] }
 
