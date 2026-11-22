@@ -41,6 +41,12 @@ jobs:
           swiftc -swift-version 5 -module-name CoreChecks -Onone Sources/PocketXRCore/*.swift Checks/*.swift -o .build/checks/core-checks
           .build/checks/core-checks
 
+      - name: ALVR's client core for PC VR (made by the ALVR workflow)
+        uses: actions/cache/restore@v4
+        with:
+          path: Native/alvr/AlvrClientCore.xcframework
+          key: alvr-ios-e8ca92b-${{ hashFiles('scripts/build-alvr.sh', 'Native/alvr/alvr-pocketxr.patch', 'Native/alvr/alvr_client_core.h') }}
+
       - name: Make the Xcode project
         run: |
           brew install xcodegen
@@ -175,6 +181,12 @@ jobs:
           jq -e '.pc2.paired and .pc2.framesShown > 30' out/space.json
           jq -e '.readabilityZoom > 1.3 and .readabilityPcWidth == 1440' out/space.json
           jq -e '.recordFrames > 30 and .recordSeconds > 2' out/space.json
+
+      - name: Check PC VR's ALVR core
+        if: hashFiles('Native/alvr/AlvrClientCore.xcframework/Info.plist') != ''
+        run: |
+          jq '{alvrAvailable, alvrHostname, alvrService}' out/space.json
+          jq -e '.alvrAvailable and (.alvrHostname | length > 0)' out/space.json
 
       - name: Check the PC screen's sound
         if: env.HOST != ''

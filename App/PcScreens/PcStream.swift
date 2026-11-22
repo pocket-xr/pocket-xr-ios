@@ -212,7 +212,7 @@ final class PcStream: @unchecked Sendable {
         return out
     }
 
-    private static func makeFormat(_ params: [Data], hevc: Bool) -> CMVideoFormatDescription? {
+    static func makeFormat(_ params: [Data], hevc: Bool) -> CMVideoFormatDescription? {
         var out: CMVideoFormatDescription?
         let ptrs = params.map { p -> UnsafeMutablePointer<UInt8> in
             let m = UnsafeMutablePointer<UInt8>.allocate(capacity: p.count)
@@ -236,7 +236,7 @@ final class PcStream: @unchecked Sendable {
         return out
     }
 
-    private static func sampleBuffer(_ data: Data, format: CMVideoFormatDescription) -> CMSampleBuffer? {
+    static func sampleBuffer(_ data: Data, format: CMVideoFormatDescription) -> CMSampleBuffer? {
         var block: CMBlockBuffer?
         guard CMBlockBufferCreateWithMemoryBlock(allocator: nil, memoryBlock: nil, blockLength: data.count, blockAllocator: nil,
                                                  customBlockSource: nil, offsetToData: 0, dataLength: data.count, flags: 0,

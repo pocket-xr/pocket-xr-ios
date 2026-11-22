@@ -45,6 +45,29 @@ if haveMoonlight {
     products.append(.library(name: "PXRMoonlight", targets: ["CMoonlightShared"]))
 }
 
+// ALVR's client core for PC VR, built by scripts/build-alvr.sh (CI's ALVR workflow keeps it in the Actions cache).
+let haveAlvr = FileManager.default.fileExists(atPath: root + "/Native/alvr/AlvrClientCore.xcframework/Info.plist")
+// ALVR's header for Swift, always there; the library is linked only when built.
+targets.append(.target(name: "CAlvr", path: "Native/alvr-swift"))
+if haveAlvr {
+    targets.append(.binaryTarget(name: "AlvrClientCore", path: "Native/alvr/AlvrClientCore.xcframework"))
+    targets.append(.target(
+        name: "PXRAlvrLink",
+        dependencies: ["AlvrClientCore", "CAlvr"],
+        path: "Native/alvr-link",
+        linkerSettings: [
+            .linkedLibrary("c++"), .linkedLibrary("resolv"),
+            .linkedFramework("AudioToolbox"), .linkedFramework("CoreAudio"), .linkedFramework("AVFoundation"),
+            .linkedFramework("CoreFoundation"), .linkedFramework("Security"), .linkedFramework("SystemConfiguration"),
+            .linkedFramework("Metal"), .linkedFramework("QuartzCore"), .linkedFramework("CoreVideo"),
+            .linkedFramework("IOSurface"), .linkedFramework("Foundation"), .linkedFramework("UIKit"),
+        ]
+    ))
+    products.append(.library(name: "PXRAlvr", targets: ["CAlvr", "PXRAlvrLink"]))
+} else {
+    products.append(.library(name: "PXRAlvr", targets: ["CAlvr"]))
+}
+
 let package = Package(
     name: "PocketXRCore",
     platforms: [.iOS(.v17), .macOS(.v14)],

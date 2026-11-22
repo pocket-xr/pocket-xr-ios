@@ -44,15 +44,17 @@ struct LauncherSite: Codable, Equatable {
 
     /// Not a site: opens the next PC screen.
     static let pcScreen = "pocketxr:pcscreen"
+    /// Not a site: PC VR (SteamVR games from a Windows PC).
+    static let pcVr = "pocketxr:pcvr"
 
     static let defaults: [LauncherSite] = [
+        LauncherSite(name: "PC VR", url: LauncherSite.pcVr, symbol: "gamecontroller.fill"),
         LauncherSite(name: "PC screen", url: LauncherSite.pcScreen, symbol: "desktopcomputer"),
         LauncherSite(name: "Google", url: "https://www.google.com", symbol: "magnifyingglass"),
         LauncherSite(name: "YouTube", url: "https://m.youtube.com", symbol: "play.rectangle.fill"),
         LauncherSite(name: "Gmail", url: "https://mail.google.com", symbol: "envelope.fill"),
         LauncherSite(name: "Docs", url: "https://docs.google.com", symbol: "doc.text.fill"),
         LauncherSite(name: "Wikipedia", url: "https://en.m.wikipedia.org", symbol: "book.fill"),
-        LauncherSite(name: "Reddit", url: "https://www.reddit.com", symbol: "bubble.left.and.bubble.right.fill"),
         LauncherSite(name: "Test page", url: TestPage.url, symbol: "checkmark.seal.fill"),
     ]
 }

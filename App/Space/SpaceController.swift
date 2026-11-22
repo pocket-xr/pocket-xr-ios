@@ -62,6 +62,24 @@ final class SpaceController: ObservableObject {
 
     // MARK: Where it is drawn
 
+    /// PC VR's picture, over the Space while PC VR runs.
+    private let pcVrView = LayerFillView()
+
+    /// PC VR started or ended: its picture covers the Space, or goes.
+    func pcVrChanged() {
+        let on = PcVrSession.shared.active
+        if on {
+            if pcVrView.layer.sublayers?.isEmpty ?? true { pcVrView.layer.addSublayer(PcVrSession.shared.videoLayer) }
+            pcVrView.backgroundColor = .black
+            guard let target = glassesContainer ?? previewContainer else { return }
+            pcVrView.frame = target.bounds
+            pcVrView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            target.addSubview(pcVrView)
+        } else {
+            pcVrView.removeFromSuperview()
+        }
+    }
+
     func attachGlasses(_ container: UIView?) {
         glassesContainer = container
         placeView()
@@ -492,7 +510,9 @@ final class SpaceController: ObservableObject {
             content = web
         case .launcher:
             content = LauncherPanel(sites: LauncherSite.defaults) { [weak self] url in
-                if url == LauncherSite.pcScreen { _ = self?.openPcScreen() } else { _ = self?.openWeb(url) }
+                if url == LauncherSite.pcScreen { _ = self?.openPcScreen() }
+                else if url == LauncherSite.pcVr { PcVrSession.shared.open() }
+                else { _ = self?.openWeb(url) }
             }
         case .pcScreen(let slot):
             let pc = PcScreenContent(slot: slot)

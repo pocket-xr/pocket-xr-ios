@@ -39,6 +39,10 @@ enum SpaceSelfTest {
         /// Record: a few seconds of the glasses' view as a video.
         var recordFrames = 0
         var recordSeconds = 0.0
+        /// PC VR: ALVR's client core linked into the app, started and stopped: this phone's ALVR name and service.
+        var alvrAvailable = false
+        var alvrHostname = ""
+        var alvrService = ""
         var arrangedWithoutOverlap = false
         var errors = [String]()
         var done = false
@@ -200,6 +204,15 @@ enum SpaceSelfTest {
             }
             c.click()
             r.closedByWindowKey = c.space.window(b) == nil
+        }
+
+        // PC VR: ALVR's client core starts and stops inside the app (no PC here: SteamVR is not on the runner).
+        r.alvrAvailable = PcVrSession.available
+        if r.alvrAvailable {
+            let (h, sv) = PcVrSession.selfTest()
+            r.alvrHostname = h
+            r.alvrService = sv
+            AppLog.line("demo: ALVR started and stopped, hostname \(h), service \(sv)")
         }
 
         // Steady mode: one wide picture even where side by side would be drawn, and the head held still.

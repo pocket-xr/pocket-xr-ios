@@ -162,6 +162,15 @@ enum PcHelperLink {
         return ok(a) ? nil : (a["why"] as? String ?? "refused")
     }
 
+    /// PC VR, as the phone does it (PcVrHelper.kt): "start" starts SteamVR and lets this phone's ALVR ([alvr], its
+    /// hostname) in, "status" says how SteamVR is ("off", "starting", "ready"), "idr" asks for a key frame.
+    static func pcVr(_ pc: Pc, op: String, alvr: String) -> [String: Any]? {
+        guard let t = token(pc) else { return nil }
+        var req: [String: Any] = ["op": op, "token": t]
+        if !alvr.isEmpty { req["alvr"] = alvr }
+        return ask(pc, req, wait: op == "start" ? 20 : 4)
+    }
+
     /// A Mac's or Linux's helper brings the virtual screen of the host on [hostPort] out at this size before the
     /// stream launches. True once ready.
     static func screenPrepare(_ pc: Pc, hostPort: Int, width: Int, height: Int, fps: Int) -> Bool {

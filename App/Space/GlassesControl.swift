@@ -31,8 +31,8 @@ final class GlassesControl {
                 }
             }
         }
-        // One picture for both eyes (docs/STATUS.md), so the glasses stay in 2D.
-        c.want3D = { false }
+        // One picture for both eyes (docs/STATUS.md), so the glasses stay in 2D; PC VR's two eyes want 3D.
+        c.want3D = { PcVrSession.wants3D }
         control = c
         c.start()
         AppLog.line("glasses: control link started for the \(glasses.name)")
@@ -42,4 +42,7 @@ final class GlassesControl {
     func setSteady(_ on: Bool) { control?.setSteady(on) }
 
     var linked: Bool { control != nil && state.link }
+
+    /// Puts the glasses' settings right again (after PC VR asks for 3D or ends).
+    func apply() { control?.apply() }
 }

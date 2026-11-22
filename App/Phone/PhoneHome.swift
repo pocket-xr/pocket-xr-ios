@@ -7,6 +7,7 @@ import UIKit
 struct PhoneHome: View {
     @EnvironmentObject var model: AppModel
     @ObservedObject var space = SpaceController.shared
+    @ObservedObject var pcVr = PcVrSession.shared
     @State private var showSettings = false
     @State private var showTour = !UserDefaults.standard.bool(forKey: "tour.seen") && !UserDefaults.standard.bool(forKey: "PXRDemo")
 
@@ -22,7 +23,15 @@ struct PhoneHome: View {
                     .accessibilityLabel("Settings")
             }
             .padding(.horizontal, 4)
-            if space.onGlasses {
+            if pcVr.active {
+                VStack(spacing: 10) {
+                    Label("PC VR", systemImage: "gamecontroller.fill").font(.headline)
+                    Text(pcVr.state).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Button { pcVr.close() } label: { Label("Back to your Space", systemImage: "arrow.uturn.backward") }
+                        .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity, minHeight: 120)
+            } else if space.onGlasses {
                 Label("The Space is on your glasses", systemImage: "eyeglasses")
                     .font(.subheadline).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 36)
