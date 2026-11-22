@@ -146,12 +146,14 @@ public struct SpaceWindows: Codable, Equatable, Sendable {
     public mutating func makeRoom(for id: UUID) {
         guard !locked, let i = index(id) else { return }
         var w = windows[i]
-        let start = w.yawDeg
+        // The side is chosen once, at the first overlap, then kept: going back would land on the window just left.
+        var goLeft: Bool?
         var tries = 0
         while let other = overlapping(w), tries < Self.maxWindows {
             let right = other.yawDeg - (other.widthDeg + w.widthDeg) / 2 - SpaceLayout.gapDeg
             let left = other.yawDeg + (other.widthDeg + w.widthDeg) / 2 + SpaceLayout.gapDeg
-            w.yawDeg = SpaceAim.wrap(abs(SpaceAim.wrap(right - start)) <= abs(SpaceAim.wrap(left - start)) ? right : left)
+            if goLeft == nil { goLeft = abs(SpaceAim.wrap(left - w.yawDeg)) < abs(SpaceAim.wrap(right - w.yawDeg)) }
+            w.yawDeg = SpaceAim.wrap(goLeft! ? left : right)
             tries += 1
         }
         windows[i] = w
