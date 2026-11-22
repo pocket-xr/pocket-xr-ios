@@ -61,7 +61,7 @@ one iOS process, where Android and Windows use one process per screen. Its crypt
 (no OpenSSL). Pairing, the client identity (kept in the keychain), the Pocket XR helper words, video into an
 AVSampleBufferDisplayLayer (hardware decoding) and Opus sound (AVAudioConverter) are ported from Pocket XR for Windows.
 
-Checked in CI run 44976618853 against a stand-in computer: Pocket XR for Mac's computer side, built from its public
+Checked in CI runs 44976618853 and 44978208181 against a stand-in computer (screenshot: phase2-simulator.png, the stand-in's screen in a PC screen, both eye halves): Pocket XR for Mac's computer side, built from its public
 repo on the runner and run with its test mode (PXR_HOST_TEST=1, it captured the runner's own screen), on
 127.0.0.1:50989, with the PIN given by its `--host-pin`.
 
@@ -75,9 +75,9 @@ repo on the runner and run with its test mode (PXR_HOST_TEST=1, it captured the 
 | A click in the PC screen reaches the computer | **Seen** in the host's log ("3 input events") |
 | PC screen in the Space as a window; launcher tile; Close ends the host's session | Built; window and tile used by the self-test |
 | Pocket XR helper words (find, allow, PIN, status, screen-prepare) | Built; the stand-in host answered "say Yes" (allow) during pairing; not checked further |
-| Readability: web pages at 4/3 zoom, PC screens at 3/4 of the pixels each way, in the Control Center | Built; **not driven** by the self-test |
-| Two or three PC screens at once (the three copies) | Built; **only PC screen 1 tried** |
-| Finding computers without the helper (mDNS), typing an address, the PIN shown for Apollo or Sunshine | Not done: the helper broadcast and the saved address only |
+| Readability: web pages at 4/3 zoom, PC screens at 3/4 of the pixels each way, in the Control Center | **Passes**: web zoom 1.33; PC screens started again at 1440x808 and streamed (808, not 810: sizes are kept to multiples of 8, as on Windows) |
+| Two PC screens at once (copies 1 and 2 of the core) | **Passes** (run 44978208181): the stand-in's first and second instances, 118 and 93 frames shown, sound from PC screen 1 only (2,872 of 2,872 packets). Three at once: built, not tried. |
+| Finding computers by mDNS (_nvstream._tcp) as well as the helper; typing an address with the Keyboard key when none is found; the PIN page named for Apollo and Sunshine | Built; **not driven** by the self-test (CI gives the address). On the runner the stand-in could not announce itself by mDNS (error -72004), so mDNS is untested. |
 | Real PC over Wi-Fi, latency, a sleeping PC, reconnects, keyboard keys into the PC, a phone keyboard and mouse into the PC | **Untested** |
 | HEVC | Offered when the device decodes it in hardware; the Simulator's run used H.264 |
 
@@ -94,5 +94,5 @@ repo on the runner and run with its test mode (PXR_HOST_TEST=1, it captured the 
 ## CI minutes
 
 The repo is private, so macOS runs count against the organisation's free 2,000 Actions minutes a month at 10x.
-By 22 Nov 2026 this repo had used about 100 macOS minutes in November (about 1,000 of the 2,000; about $6 at list price, charged $0). A full run takes about 5 minutes now (the stand-in computer is built each time), so roughly 18 more fit this month; the allowance resets on 1 December. With no payment method on the organisation, runs stop when the minutes are
+By 22 Nov 2026 this repo had used about 110 macOS minutes in November (about 1,100 of the 2,000; about $6.80 at list price, charged $0). A full run takes about 5 minutes, so roughly 17 more fit this month; the allowance resets on 1 December. With no payment method on the organisation, runs stop when the minutes are
 used up; nothing is charged. Making the repo public makes them free.
