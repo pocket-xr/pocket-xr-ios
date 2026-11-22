@@ -8,7 +8,7 @@ struct PhoneHome: View {
     @EnvironmentObject var model: AppModel
     @ObservedObject var space = SpaceController.shared
     @ObservedObject var pcVr = PcVrSession.shared
-    @State private var showSettings = false
+    @State private var showSettings = UserDefaults.standard.bool(forKey: "PXRShowSettings")
     @State private var showTour = !UserDefaults.standard.bool(forKey: "tour.seen") && !UserDefaults.standard.bool(forKey: "PXRDemo")
 
     var body: some View {

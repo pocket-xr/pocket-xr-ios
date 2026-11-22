@@ -49,6 +49,10 @@ enum SpaceSelfTest {
     }
 
     static func runIfAsked() {
+        if UserDefaults.standard.bool(forKey: "PXRShowcase") {
+            Task { @MainActor in await showcase() }
+            return
+        }
         guard UserDefaults.standard.bool(forKey: "PXRDemo") else { return }
         Task { @MainActor in await run() }
     }
@@ -295,13 +299,27 @@ enum SpaceSelfTest {
         }
 
         // Side by side, as for glasses in 3D: left on for the screenshot CI takes afterwards.
-        c.view.forceSideBySide = true
+        c.view.forceSideBySide = !UserDefaults.standard.bool(forKey: "PXRNoSideBySide")
         c.view.layoutIfNeeded()
         r.sideBySideOn = c.view.sideBySide
 
         r.done = true
         AppLog.line("demo: done, \(r.errors.isEmpty ? "no errors" : r.errors.joined(separator: "; "))")
         write(r)
+    }
+
+    /// For the App Store screenshots (-PXRShowcase YES): two real sites and the launcher, arranged in front.
+    static func showcase() async {
+        let c = SpaceController.shared
+        await wait(1)
+        _ = c.openWeb("https://en.m.wikipedia.org/wiki/Smartglasses")
+        _ = c.openWeb("https://news.ycombinator.com")
+        c.arrange(.row)
+        await wait(8)
+        c.recentre()
+        AppLog.line("showcase: ready")
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? Data("ready".utf8).write(to: docs.appendingPathComponent("showcase.txt"))
     }
 
     private static func write(_ r: Results) {
