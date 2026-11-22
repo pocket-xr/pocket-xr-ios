@@ -118,9 +118,12 @@ final class TrackpadView: UIView, UIGestureRecognizerDelegate {
     }
 }
 
-/// Catches the phone keyboard's typing and sends it to the focused window. Becomes first responder when the
-/// Keyboard button is pressed.
+/// Catches typing for the focused window. It takes the phone's keyboard focus after every click, so a web page's
+/// text field never brings up iOS's keyboard by itself; the keyboard shows only while the Keyboard button is on
+/// (Mike, 22 Nov 2026). A hardware keyboard types through it too.
 final class KeyCatcher: UIView, UIKeyInput {
+    static weak var current: KeyCatcher?
+
     var hasText: Bool { true }
     override var canBecomeFirstResponder: Bool { true }
     var autocorrectionType: UITextAutocorrectionType = .no
@@ -129,23 +132,46 @@ final class KeyCatcher: UIView, UIKeyInput {
     var smartQuotesType: UITextSmartQuotesType = .no
     var smartDashesType: UITextSmartDashesType = .no
 
+    /// The phone's keyboard is shown (the Keyboard button), else focus is held with no keyboard on screen.
+    var showsKeyboard = false {
+        didSet {
+            guard showsKeyboard != oldValue else { return }
+            if isFirstResponder { reloadInputViews() } else { takeFocus() }
+        }
+    }
+
+    private let noKeyboard = UIView(frame: .zero)
+
+    override var inputView: UIView? { showsKeyboard ? nil : noKeyboard }
+
+    /// Takes the keyboard focus back, from a web page that took it on a click.
+    func takeFocus() {
+        if !isFirstResponder { becomeFirstResponder() }
+    }
+
     func insertText(_ text: String) {
-        if text == "\n" { SpaceController.shared.key("Enter") } else { SpaceController.shared.type(text) }
+        switch text {
+        case "\n": SpaceController.shared.key("Enter")
+        case "\t": SpaceController.shared.key("Tab")
+        default: SpaceController.shared.type(text)
+        }
     }
 
     func deleteBackward() { SpaceController.shared.key("Backspace") }
 
-    /// The keyboard's shortcut row: Esc, Tab and the arrows.
-    override var inputAccessoryView: UIView? {
+    /// The keyboard's shortcut row: Esc, Tab and the arrows, and Done.
+    private lazy var shortcuts: UIView = {
         let bar = UIToolbar(frame: CGRect(x: 0, y: 0, width: 320, height: 44))
         func item(_ title: String, _ key: String) -> UIBarButtonItem {
             UIBarButtonItem(title: title, primaryAction: UIAction { _ in SpaceController.shared.key(key) })
         }
         bar.items = [item("Esc", "Escape"), item("Tab", "Tab"), .flexibleSpace(), item("←", "ArrowLeft"), item("↑", "ArrowUp"),
                      item("↓", "ArrowDown"), item("→", "ArrowRight"), .flexibleSpace(),
-                     UIBarButtonItem(systemItem: .done, primaryAction: UIAction { [weak self] _ in self?.resignFirstResponder() })]
+                     UIBarButtonItem(systemItem: .done, primaryAction: UIAction { _ in SpaceController.shared.keyboardOn = false })]
         return bar
-    }
+    }()
+
+    override var inputAccessoryView: UIView? { showsKeyboard ? shortcuts : nil }
 }
 
 /// The Spatial Mouse: point the phone like a laser; its turn moves the pointer.
@@ -229,12 +255,17 @@ struct SpacePreview: UIViewRepresentable {
 }
 
 struct KeyCatcherRepresentable: UIViewRepresentable {
-    @Binding var active: Bool
+    var keyboard: Bool
 
-    func makeUIView(context: Context) -> KeyCatcher { KeyCatcher() }
+    func makeUIView(context: Context) -> KeyCatcher {
+        let v = KeyCatcher()
+        KeyCatcher.current = v
+        DispatchQueue.main.async { v.takeFocus() }
+        return v
+    }
 
     func updateUIView(_ v: KeyCatcher, context: Context) {
-        if active, !v.isFirstResponder { DispatchQueue.main.async { v.becomeFirstResponder() } }
-        if !active, v.isFirstResponder { DispatchQueue.main.async { v.resignFirstResponder() } }
+        let on = keyboard
+        DispatchQueue.main.async { v.showsKeyboard = on }
     }
 }

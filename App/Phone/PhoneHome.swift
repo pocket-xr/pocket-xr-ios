@@ -7,7 +7,6 @@ import UIKit
 struct PhoneHome: View {
     @EnvironmentObject var model: AppModel
     @ObservedObject var space = SpaceController.shared
-    @State private var keyboard = false
     @State private var showProbe = false
 
     var body: some View {
@@ -34,7 +33,7 @@ struct PhoneHome: View {
             }
             ZStack {
                 TrackpadRepresentable()
-                KeyCatcherRepresentable(active: $keyboard).frame(width: 1, height: 1).opacity(0.01)
+                KeyCatcherRepresentable(keyboard: space.keyboardOn).frame(width: 1, height: 1).opacity(0.01)
             }
             .frame(maxHeight: .infinity)
             if space.mode != .none {
@@ -69,7 +68,7 @@ struct PhoneHome: View {
             HStack(spacing: 8) {
                 key("square.grid.2x2", "Apps") { _ = space.openLauncher() }
                 key("switch.2", "Control") { _ = space.openControlCenter() }
-                key("keyboard", "Keyboard", on: keyboard) { keyboard.toggle() }
+                key("keyboard", "Keyboard", on: space.keyboardOn) { space.keyboardOn.toggle() }
                 key("chevron.backward", "Back") { space.back() }
                 key("scope", "Recentre") { space.recentre() }
             }
@@ -104,8 +103,18 @@ struct PhoneHome: View {
 final class PhoneHostingController: UIHostingController<AnyView> {
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         var handled = false
+        // While the key catcher has the focus, iOS gives it the typed text, Return, Tab and Backspace itself; only
+        // the keys that type nothing are taken here.
+        let catcherTypes = KeyCatcher.current?.isFirstResponder == true
         for press in presses {
             guard let k = press.key else { continue }
+            if catcherTypes {
+                if let name = Self.names[k.keyCode], !Self.typed.contains(k.keyCode) {
+                    SpaceController.shared.key(name)
+                    handled = true
+                }
+                continue
+            }
             if let name = Self.names[k.keyCode] {
                 SpaceController.shared.key(name)
                 handled = true
@@ -116,6 +125,9 @@ final class PhoneHostingController: UIHostingController<AnyView> {
         }
         if !handled { super.pressesBegan(presses, with: event) }
     }
+
+    /// Keys that reach the key catcher as text (insertText or deleteBackward).
+    static let typed: Set<UIKeyboardHIDUsage> = [.keyboardReturnOrEnter, .keyboardDeleteOrBackspace, .keyboardTab]
 
     static let names: [UIKeyboardHIDUsage: String] = [
         .keyboardReturnOrEnter: "Enter", .keyboardDeleteOrBackspace: "Backspace", .keyboardTab: "Tab",

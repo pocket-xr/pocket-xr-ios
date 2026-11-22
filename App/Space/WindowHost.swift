@@ -235,12 +235,36 @@ final class WebContent: NSObject, SpaceContent, WKNavigationDelegate, WKUIDelega
         return null;
       }
       var lastHover = null;
+      var lastField = null;
+      function editable(e) { return !!e && (e.isContentEditable || /^(INPUT|TEXTAREA)$/.test(e.tagName)); }
+      // The field to type into: the focused one, else the last one clicked (the phone keeps the keyboard focus,
+      // which can blur the page's field).
+      function field() {
+        var a = document.activeElement;
+        if (editable(a)) return a;
+        if (lastField && lastField.isConnected) {
+          try { lastField.focus({ preventScroll: true }); } catch (e) {}
+          return lastField;
+        }
+        return null;
+      }
+      function insert(f, text) {
+        if (document.activeElement === f && document.execCommand('insertText', false, text)) return;
+        if (f.isContentEditable) { f.textContent += text; }
+        else {
+          var v = f.value || '', a = f.selectionStart == null ? v.length : f.selectionStart, b = f.selectionEnd == null ? v.length : f.selectionEnd;
+          f.value = v.slice(0, a) + text + v.slice(b);
+          try { f.setSelectionRange(a + text.length, a + text.length); } catch (e) {}
+        }
+        f.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }));
+      }
       return {
         click: function (x, y) {
           var t = at(x, y); if (!t) return 'none';
           ev(t, 'pointerdown', x, y, PointerEvent); ev(t, 'mousedown', x, y, MouseEvent);
           var f = t.closest('input,textarea,select,[contenteditable=""],[contenteditable="true"],button,a') || t;
           try { if (f.focus) f.focus({ preventScroll: true }); } catch (e) {}
+          lastField = editable(f) ? f : null;
           ev(t, 'pointerup', x, y, PointerEvent); ev(t, 'mouseup', x, y, MouseEvent);
           if (t.click) t.click(); else ev(t, 'click', x, y, MouseEvent);
           return t.tagName;
@@ -259,25 +283,27 @@ final class WebContent: NSObject, SpaceContent, WKNavigationDelegate, WKUIDelega
           if (s) s.scrollBy(dx, dy); else window.scrollBy(dx, dy);
         },
         type: function (text) {
-          var a = document.activeElement;
-          if (a && (a.isContentEditable || /^(INPUT|TEXTAREA)$/.test(a.tagName))) {
-            if (!document.execCommand('insertText', false, text)) {
-              a.value = (a.value || '') + text;
-              a.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-          }
-          for (var i = 0; i < text.length; i++) {
-            var k = { key: text[i], bubbles: true };
-            (a || document.body).dispatchEvent(new KeyboardEvent('keydown', k));
-            (a || document.body).dispatchEvent(new KeyboardEvent('keyup', k));
-          }
+          var f = field();
+          var t = f || document.activeElement || document.body;
+          for (var i = 0; i < text.length; i++) t.dispatchEvent(new KeyboardEvent('keydown', { key: text[i], bubbles: true }));
+          if (f) insert(f, text);
+          for (var j = 0; j < text.length; j++) t.dispatchEvent(new KeyboardEvent('keyup', { key: text[j], bubbles: true }));
         },
         key: function (name) {
-          var a = document.activeElement || document.body;
+          var a = field() || document.activeElement || document.body;
           var o = { key: name, code: name, bubbles: true, cancelable: true };
           var go = a.dispatchEvent(new KeyboardEvent('keydown', o));
           if (go) {
-            if (name === 'Backspace') document.execCommand('delete');
+            if (name === 'Backspace') {
+              if (document.activeElement === a && document.execCommand('delete')) {}
+              else if (editable(a) && !a.isContentEditable) {
+                var v = a.value || '', x = a.selectionStart == null ? v.length : a.selectionStart, y = a.selectionEnd == null ? v.length : a.selectionEnd;
+                if (x === y && x > 0) x -= 1;
+                a.value = v.slice(0, x) + v.slice(y);
+                try { a.setSelectionRange(x, x); } catch (e) {}
+                a.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }));
+              }
+            }
             else if (name === 'Enter') {
               if (a.tagName === 'TEXTAREA' || a.isContentEditable) document.execCommand('insertLineBreak');
               else if (a.form) { if (a.form.requestSubmit) a.form.requestSubmit(); else a.form.submit(); }

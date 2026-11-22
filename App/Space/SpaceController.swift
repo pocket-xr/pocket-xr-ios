@@ -22,6 +22,8 @@ final class SpaceController: ObservableObject {
     @Published private(set) var presets = [SavedLayout]()
     @Published private(set) var mode = Mode.none
     @Published var spatialMouse = false
+    /// The phone's keyboard is up (the Keyboard button). Clicking into a web field never raises it by itself.
+    @Published var keyboardOn = false
     /// Where the Space is drawn: the glasses, or the phone's preview when no glasses are connected.
     @Published private(set) var onGlasses = false
 
@@ -161,6 +163,11 @@ final class SpaceController: ObservableObject {
         space.focus(host.id)
         host.click(at: p)
         changed(save: false)
+        // A click into a web page's text field makes WebKit take the keyboard focus and raise iOS's keyboard; the
+        // key catcher takes it back (the field stays focused in the page, so typing still lands there).
+        for delay in [0.0, 0.15, 0.4] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { KeyCatcher.current?.takeFocus() }
+        }
     }
 
     func scroll(dx: Double, dy: Double) {

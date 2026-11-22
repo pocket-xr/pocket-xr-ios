@@ -15,6 +15,8 @@ enum SpaceSelfTest {
         var listScrollTop = 0.0
         var windowsAfterLauncherClick = 0
         var lockedMoveBlocked = false
+        /// After clicking into the web field, the key catcher holds the focus and no keyboard is up.
+        var keyboardStayedDown = false
         var arrangedWithoutOverlap = false
         var errors = [String]()
         var done = false
@@ -80,7 +82,14 @@ enum SpaceSelfTest {
 
         // Click into the field and type.
         await clickElement(c, a, web, "field", &r)
-        c.type("hello")
+        await wait(0.5)
+        if let k = KeyCatcher.current {
+            r.keyboardStayedDown = k.isFirstResponder && !k.showsKeyboard
+        }
+        c.type("hellp")
+        await wait(0.3)
+        c.key("Backspace")
+        c.type("o")
         await wait(0.5)
         r.fieldValue = await js(web, "document.getElementById('field').value") as? String ?? ""
 
