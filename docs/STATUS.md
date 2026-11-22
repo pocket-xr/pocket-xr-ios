@@ -23,7 +23,7 @@ results back from the pages themselves.
 
 | Item | State |
 |---|---|
-| Window model: open beside others, move, resize, push and pull, bend, snap, arrange, Adjust all, Lock screens, focus order, save and load | **Passes** the core checks (Checks/WindowChecks.swift, 1,123 checks in all) |
+| Window model: open beside others, move, resize, push and pull, bend, snap, arrange, Adjust all, Lock screens, focus order, save and load | **Passes** the core checks (Checks/WindowChecks.swift, over 1,100 checks in all) |
 | Windows drawn in 3D from the head pose (Core Animation, live views) | **Seen** in the Simulator preview: two test pages and the launcher in perspective, the pointer on a page |
 | Click on a web page through the pointer | **Passes**: the page's button reports "clicked 1" |
 | Click into a web text field and type | **Passes**: the field holds "hello". Finding: the click also gives the web view focus, so iOS raises the phone's own keyboard over the trackpad (seen in the screenshot). Typing still works either way; whether that is wanted is Mike's call. |
