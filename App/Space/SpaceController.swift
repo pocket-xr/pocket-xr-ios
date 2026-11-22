@@ -27,6 +27,10 @@ final class SpaceController: ObservableObject {
     /// Readability: larger text on 1080p glasses. Web pages are zoomed by 4/3 and PC screens stream at 3/4 of the
     /// pixels each way, so text is a third bigger (Android 1.6.4's 4/3 density, the Mac's 1440 x 810 screen).
     @Published private(set) var readability = false
+    /// Steady mode: the windows in a row on one wide canvas that the glasses hold still themselves (the Aura's and
+    /// One's Spatial Anchor with Ultrawide, or the glasses' own anchor). The app then draws head locked, one picture.
+    @Published private(set) var steady = false
+    @Published private(set) var recording = false
     /// Where the Space is drawn: the glasses, or the phone's preview when no glasses are connected.
     @Published private(set) var onGlasses = false
 
@@ -83,13 +87,16 @@ final class SpaceController: ObservableObject {
     // MARK: Each frame
 
     /// Head tracking is drawing the Space: the glasses' sensor stream is up and tracking is switched on.
-    var tracked: Bool { tracking.headTracking && Probe.shared.snapshot.link == .streaming }
+    var tracked: Bool { !steady && tracking.headTracking && Probe.shared.snapshot.link == .streaming }
 
     /// The view's direction (yaw, pitch).
     var viewAim: SpaceAim { SpaceAim.of(head.rotate(SIMD3(0, 0, -1))) }
 
     func tick(now: Double, period: Double, view: SpaceView) {
-        if tracked {
+        if steady {
+            // The glasses hold the canvas: the app draws head locked.
+            head = .identity
+        } else if tracked {
             head = Probe.shared.drawPose(now: now, framePeriod: period, options: TrackingOptions(tracking))
         } else {
             head = Quat.aboutY(lookYawDeg * .pi / 180) * Quat.aboutX(lookPitchDeg * .pi / 180)
@@ -253,6 +260,78 @@ final class SpaceController: ObservableObject {
     func setFollow(_ on: Bool) {
         tracking.trackingMode = on ? .smoothFollow : .bodyAnchor
         changed()
+    }
+
+    /// Steady mode on or off. With the glasses' control link (the Aura, the One family) the glasses are asked for
+    /// Ultrawide and their Spatial Anchor; without it only the drawing changes.
+    func setSteady(_ on: Bool) {
+        guard on != steady else { return }
+        steady = on
+        view.steady = on
+        GlassesControl.shared.setSteady(on)
+        if on {
+            lookYawDeg = 0
+            lookPitchDeg = 0
+            pointer = SpacePointer()
+            // The windows in a row in front, as Android's Steady mode lines them up.
+            arrange(.row)
+        }
+        AppLog.line("space: Steady mode \(on ? "on" : "off")\(GlassesControl.shared.linked ? "" : " (no control link: drawing only)")")
+        changed()
+    }
+
+    /// Record: a video of what the glasses show, saved to Photos.
+    func setRecording(_ on: Bool, toPhotos: Bool = true, done: ((URL?) -> Void)? = nil) {
+        if on {
+            recording = Recorder.shared.begin(view)
+            done?(nil)
+        } else {
+            Recorder.shared.end(toPhotos: toPhotos) { url in done?(url) }
+            recording = false
+        }
+        changed(save: false)
+    }
+
+    // MARK: Settings and layouts as files
+
+    /// Everything Pocket XR keeps (windows, layouts, tracking, Readability) as a file, for Save settings to a file.
+    func settingsFile() -> Data? {
+        saveNow()
+        return UserDefaults.standard.data(forKey: Self.key)
+    }
+
+    /// Restores a settings file: the windows, layouts and settings it holds replace the ones here. False if it is
+    /// not a Pocket XR settings file.
+    @discardableResult
+    func restoreSettings(_ data: Data) -> Bool {
+        guard let s = try? JSONDecoder().decode(Saved.self, from: data) else { return false }
+        for w in space.windows { close(w.id) }
+        space = SpaceWindows()
+        presets = s.presets
+        if let t = s.tracking { tracking = t }
+        setReadability(s.readability ?? false)
+        for w in s.space.windows where w.kind != .controlCenter {
+            space.windows.append(w)
+            makeHost(w)
+        }
+        space.locked = s.space.locked
+        space.focused = space.windows.last?.id
+        changed()
+        AppLog.line("space: settings restored, \(space.windows.count) windows, \(presets.count) layouts")
+        return true
+    }
+
+    /// The saved layouts alone, for Share layouts.
+    func layoutsFile() -> Data? {
+        try? JSONEncoder().encode(presets)
+    }
+
+    /// Adds the layouts in a shared file to the ones here. The number added, or nil if it is not a layouts file.
+    func importLayouts(_ data: Data) -> Int? {
+        guard let list = try? JSONDecoder().decode([SavedLayout].self, from: data) else { return nil }
+        for p in list where !presets.contains(p) { presets.append(p) }
+        changed()
+        return list.count
     }
 
     func setLocked(_ on: Bool) {
@@ -500,6 +579,7 @@ final class SpaceController: ObservableObject {
         var presets: [SavedLayout]
         var tracking: SpaceSettings?
         var readability: Bool?
+        var steady: Bool?
     }
 
     private static let key = "space.v1"
@@ -517,7 +597,7 @@ final class SpaceController: ObservableObject {
     func saveNow() {
         var s = space
         s.windows = s.windows.filter { $0.kind != .controlCenter }
-        if let data = try? JSONEncoder().encode(Saved(space: s, presets: presets, tracking: tracking, readability: readability)) {
+        if let data = try? JSONEncoder().encode(Saved(space: s, presets: presets, tracking: tracking, readability: readability, steady: steady)) {
             UserDefaults.standard.set(data, forKey: Self.key)
         }
     }
@@ -529,5 +609,7 @@ final class SpaceController: ObservableObject {
         presets = s.presets
         if let t = s.tracking { tracking = t }
         readability = s.readability ?? false
+        // Steady mode is remembered and comes back on (Android 1.5.2).
+        if s.steady == true { DispatchQueue.main.async { self.setSteady(true) } }
     }
 }

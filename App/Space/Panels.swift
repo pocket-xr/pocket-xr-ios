@@ -210,10 +210,18 @@ final class ControlCenterPanel: PanelContent {
             pill("Adjust all", symbol: "arrow.up.and.down.and.arrow.left.and.right") { controller.setMode(.moveAll) },
             pill("Close all", symbol: "xmark.circle") { controller.closeAll() },
         ])
+        let modes = UIStackView(arrangedSubviews: [
+            pill("Steady mode", symbol: "rectangle.split.3x1") { controller.setSteady(!controller.steady) },
+            pill("Record", symbol: "record.circle") { controller.setRecording(!controller.recording) },
+        ])
+        modes.axis = .horizontal
+        modes.spacing = 12
+        modes.distribution = .fillEqually
         quick.axis = .horizontal
         quick.spacing = 12
         quick.distribution = .fillEqually
         stack.addArrangedSubview(quick)
+        stack.addArrangedSubview(modes)
 
         let lockRow = UIStackView(arrangedSubviews: [label("Lock screens", size: 24), UIView(), lockSwitch])
         lockRow.axis = .horizontal

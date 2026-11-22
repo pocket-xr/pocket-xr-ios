@@ -11,6 +11,12 @@ import UIKit
 final class SpaceView: UIView {
     /// The glasses' vertical field of view; the phone's preview uses the same so it shows what the glasses would.
     var fovYDeg = GlassesOptics.auraFovYDeg
+    /// Steady mode: one wide picture across the whole display (Ultrawide's 3840 x 1080 is one canvas, not two eyes;
+    /// learnt on the Mac, 16 Nov 2026).
+    var steady = false {
+        didSet { setNeedsLayout() }
+    }
+
     /// Draws side by side whatever the view's shape (the self-test).
     var forceSideBySide = false {
         didSet { setNeedsLayout() }
@@ -60,7 +66,7 @@ final class SpaceView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let sbs = forceSideBySide || GlassesOptics.isSideBySide(width: Int(bounds.width), height: Int(bounds.height))
+        let sbs = !steady && (forceSideBySide || GlassesOptics.isSideBySide(width: Int(bounds.width), height: Int(bounds.height)))
         if sbs != sideBySide { AppLog.line("space: \(sbs ? "side by side" : "one picture") at \(Int(bounds.width))x\(Int(bounds.height))") }
         sideBySide = sbs
         eye.frame = sbs ? CGRect(x: 0, y: 0, width: bounds.width / 2, height: bounds.height) : bounds

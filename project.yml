@@ -62,6 +62,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSLocalNetworkUsageDescription: Pocket XR talks to your glasses over their USB cable to read head tracking, and finds your computer on the local network for PC screens.
+        NSPhotoLibraryAddUsageDescription: Pocket XR saves your recordings of the glasses to Photos.
         NSBonjourServices:
           - _nvstream._tcp
         ITSAppUsesNonExemptEncryption: false

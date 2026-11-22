@@ -1,3 +1,4 @@
+import AVFoundation
 import PocketXRCore
 import UIKit
 import WebKit
@@ -28,6 +29,16 @@ enum SpaceSelfTest {
         /// Readability: a web window's zoom, and PC screen 1's stream size after it starts again.
         var readabilityZoom = 0.0
         var readabilityPcWidth = 0
+        /// Steady mode: one picture (not side by side) and the head held still.
+        var steadyOnePicture = false
+        var steadyHeadLocked = false
+        /// Save settings to a file, then restore it: the same windows come back.
+        var settingsWindowsBefore = 0
+        var settingsWindowsAfter = 0
+        var layoutsImported = 0
+        /// Record: a few seconds of the glasses' view as a video.
+        var recordFrames = 0
+        var recordSeconds = 0.0
         var arrangedWithoutOverlap = false
         var errors = [String]()
         var done = false
@@ -187,6 +198,29 @@ enum SpaceSelfTest {
             r.closedByWindowKey = c.space.window(b) == nil
         }
 
+        // Steady mode: one wide picture even where side by side would be drawn, and the head held still.
+        c.view.forceSideBySide = true
+        c.setSteady(true)
+        c.view.layoutIfNeeded()
+        await wait(0.3)
+        r.steadyOnePicture = !c.view.sideBySide
+        r.steadyHeadLocked = c.head == Quat.identity
+        c.setSteady(false)
+        c.view.forceSideBySide = false
+        c.view.layoutIfNeeded()
+
+        // Settings to a file and back; layouts shared and imported.
+        c.savePreset()
+        if let file = c.settingsFile() {
+            r.settingsWindowsBefore = c.space.windows.filter { $0.kind != .controlCenter }.count
+            c.restoreSettings(file)
+            r.settingsWindowsAfter = c.space.windows.count
+        } else {
+            r.errors.append("no settings file")
+        }
+        if let layouts = c.layoutsFile() { r.layoutsImported = c.importLayouts(layouts) ?? 0 }
+        await wait(1)
+
         // A PC screen: CI runs Pocket XR for Mac's computer side (its test picture) and gives the PIN.
         if UserDefaults.standard.string(forKey: "PXRPcAddress") != nil {
             if let pid = c.openPcScreen(), let host = c.host(pid), let pc = host.content as? PcScreenContent {
@@ -218,6 +252,26 @@ enum SpaceSelfTest {
                 r.readabilityPcWidth = pc.report().width
                 AppLog.line("demo: Readability: web zoom \(r.readabilityZoom), PC screen 1 at \(pc.report().width)x\(pc.report().height), \(pc.report().framesShown) frames")
                 c.lookForTest(pid)
+                await wait(0.5)
+                // Record three seconds of the view with the PC screen in it, and keep one picture from the video.
+                c.setRecording(true)
+                await wait(3)
+                let url: URL? = await withCheckedContinuation { cont in
+                    c.setRecording(false, toPhotos: false) { cont.resume(returning: $0) }
+                }
+                r.recordFrames = Recorder.shared.frames
+                if let url {
+                    let asset = AVURLAsset(url: url)
+                    r.recordSeconds = (try? await asset.load(.duration).seconds) ?? 0
+                    let gen = AVAssetImageGenerator(asset: asset)
+                    if let image = try? await gen.image(at: CMTime(seconds: 2, preferredTimescale: 600)).image,
+                       let png = UIImage(cgImage: image).pngData() {
+                        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        try? png.write(to: docs.appendingPathComponent("record-frame.png"))
+                    }
+                } else {
+                    r.errors.append("recording made no file")
+                }
             } else {
                 r.errors.append("no PC screen")
             }

@@ -131,6 +131,10 @@ final class Probe: @unchecked Sendable {
                     (fd, via) = try GlassesNet.open(port: ImuFramer.port) { AppLog.line("probe: \($0)") }
                 }
                 AppLog.line("probe: sensor stream open via \(via)")
+                if overrideHost == nil {
+                    let one = axes == .one
+                    DispatchQueue.main.async { MainActor.assumeIsolated { GlassesControl.shared.startIfLinked(one: one) } }
+                }
                 update { $0.link = .streaming; $0.via = via; $0.lastError = "" }
                 read(fd)
                 close(fd)

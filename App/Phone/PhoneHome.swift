@@ -7,7 +7,8 @@ import UIKit
 struct PhoneHome: View {
     @EnvironmentObject var model: AppModel
     @ObservedObject var space = SpaceController.shared
-    @State private var showProbe = false
+    @State private var showSettings = false
+    @State private var showTour = !UserDefaults.standard.bool(forKey: "tour.seen") && !UserDefaults.standard.bool(forKey: "PXRDemo")
 
     var body: some View {
         VStack(spacing: 10) {
@@ -15,8 +16,10 @@ struct PhoneHome: View {
                 Text("Pocket XR").font(.headline)
                 Spacer()
                 Text(statusLine).font(.caption).foregroundStyle(.secondary)
-                Button { showProbe = true } label: { Image(systemName: "info.circle") }
-                    .accessibilityLabel("Glasses and tracking")
+                if space.recording { Image(systemName: "record.circle.fill").foregroundStyle(.red).accessibilityLabel("Recording") }
+                if space.steady { Text("Steady").font(.caption.bold()).foregroundStyle(Color.accentColor) }
+                Button { showSettings = true } label: { Image(systemName: "gearshape") }
+                    .accessibilityLabel("Settings")
             }
             .padding(.horizontal, 4)
             if space.onGlasses {
@@ -44,7 +47,8 @@ struct PhoneHome: View {
         .padding(12)
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showProbe) { ProbeView().environmentObject(model) }
+        .sheet(isPresented: $showSettings) { SettingsView().environmentObject(model) }
+        .sheet(isPresented: $showTour) { TourView() }
     }
 
     private var statusLine: String {
