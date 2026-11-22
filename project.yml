@@ -34,6 +34,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.hayeco.pocketxr.ios
         PRODUCT_NAME: PocketXR
         TARGETED_DEVICE_FAMILY: "1,2"
+        # ALVR's client core is built for Apple silicon only (scripts/build-alvr.sh): no Intel Simulator.
+        EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         INFOPLIST_FILE: Config/Info.plist
