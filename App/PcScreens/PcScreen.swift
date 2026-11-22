@@ -190,20 +190,21 @@ final class PcScreenContent: NSObject, SpaceContent {
             }
             return nil
         }.value
-        guard let (address, name) = found else {
+        guard let found else {
             show("No computer found. On the computer, turn on \"Let my phone show this computer\" in Pocket XR for Windows, Mac or Steam Deck.")
             state = "none found"
             return false
         }
-        store.address = address
-        store.pcName = name
+        store.address = found.0
+        store.pcName = found.1
         store.save(slot)
         onTitle?()
         return true
     }
 
     private func pair(_ id: PcIdentity) async -> Bool {
-        guard let (host, port) = PcScreenStore.parse(store.address) else { show("The computer's address is not right: \(store.address)"); return false }
+        guard let parsed = PcScreenStore.parse(store.address) else { show("The computer's address is not right: \(store.address)"); return false }
+        let (host, port) = parsed
         let pin = UserDefaults.standard.string(forKey: "PXRPcPin") ?? NvHttp.newPin()
         let http = NvHttp(host: host, httpPort: port, httpsPort: 0, serverCert: nil, identity: id)
         do {
@@ -248,7 +249,8 @@ final class PcScreenContent: NSObject, SpaceContent {
     }
 
     private func startStream(_ id: PcIdentity, fresh: Bool) async {
-        guard let (host, port) = PcScreenStore.parse(store.address) else { return }
+        guard let parsed = PcScreenStore.parse(store.address) else { return }
+        let (host, port) = parsed
         show("Connecting to \(store.pcName ?? host)…")
         let http = NvHttp(host: host, httpPort: port, httpsPort: store.httpsPort, serverCert: store.serverCert, identity: id)
         activeHttp = http
@@ -266,7 +268,7 @@ final class PcScreenContent: NSObject, SpaceContent {
             // Readability asks for 3/4 of the pixels each way.
             let scale = readability ? 0.75 : 1.0
             let b = root.bounds.size
-            let aspect = b.height > 0 ? b.width / b.height : 16.0 / 9.0
+            let aspect = b.height > 0 ? Double(b.width / b.height) : 16.0 / 9.0
             var w = Int(1920 * scale), h = Int(Double(w) / aspect)
             w = max(640, w / 8 * 8)
             h = max(360, h / 8 * 8)
@@ -384,15 +386,15 @@ final class PcScreenContent: NSObject, SpaceContent {
     }
 
     func click(at p: CGPoint) {
-        guard streaming, let s = stream, let (x, y) = streamPoint(p) else { return }
-        s.mousePosition(x: x, y: y, refWidth: streamW, refHeight: streamH)
+        guard streaming, let s = stream, let at = streamPoint(p) else { return }
+        s.mousePosition(x: at.0, y: at.1, refWidth: streamW, refHeight: streamH)
         s.mouseButton(PcStream.buttonLeft, down: true)
         s.mouseButton(PcStream.buttonLeft, down: false)
     }
 
     func hover(at p: CGPoint) {
-        guard streaming, let s = stream, let (x, y) = streamPoint(p) else { return }
-        s.mousePosition(x: x, y: y, refWidth: streamW, refHeight: streamH)
+        guard streaming, let s = stream, let at = streamPoint(p) else { return }
+        s.mousePosition(x: at.0, y: at.1, refWidth: streamW, refHeight: streamH)
     }
 
     func scroll(at p: CGPoint, dx: CGFloat, dy: CGFloat) {

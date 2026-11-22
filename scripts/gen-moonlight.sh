@@ -32,7 +32,7 @@ trap 'rm -rf "$TMP"' EXIT
 for s in "${SOURCES[@]}"; do
     clang -c -O0 -w "${DEFS[@]}" "${INCS[@]}" "$N/$s" -o "$TMP/$(echo "$s" | tr '/' '_').o"
 done
-nm -gUj "$TMP"/*.o | sed 's/^_//' | grep -v '^$' | sort -u > "$TMP/symbols.txt"
+nm -gUj "$TMP"/*.o | grep -E '^_[A-Za-z_][A-Za-z0-9_]*$' | sed 's/^_//' | sort -u > "$TMP/symbols.txt"
 echo "gen-moonlight: $(wc -l < "$TMP/symbols.txt" | tr -d ' ') global names to prefix"
 grep -qx 'pxr_api' "$TMP/symbols.txt" || { echo "gen-moonlight: pxr_api not found"; exit 1; }
 

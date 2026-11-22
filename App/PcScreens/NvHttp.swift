@@ -89,7 +89,10 @@ final class NvHttp: NSObject, URLSessionDelegate, @unchecked Sendable {
     /// The host's serverinfo: over HTTPS when paired (only then does it say PairStatus 1), else plain HTTP.
     func serverInfo(timeout: Double = 5) async throws -> String {
         if serverCert != nil {
-            if httpsPort <= 0 { httpsPort = Self.httpsPort(of: try await get(false, "serverinfo", timeout: timeout)) }
+            if httpsPort <= 0 {
+                let plain = try await get(false, "serverinfo", timeout: timeout)
+                httpsPort = Self.httpsPort(of: plain)
+            }
             do {
                 return try await get(true, "serverinfo", timeout: timeout)
             } catch let e as HostError where e.code == 401 {

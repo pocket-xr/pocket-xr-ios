@@ -175,7 +175,7 @@ final class PcStream: @unchecked Sendable {
             }
         }
         if keyFrame { keyFrames += 1 }
-        if !params.isEmpty, let fd = Self.formatDescription(params, hevc: hevc) {
+        if !params.isEmpty, let fd = Self.makeFormat(params, hevc: hevc) {
             formatDescription = fd
         }
         guard let fd = formatDescription else { return -1 } // no parameter sets yet: ask for a key frame
@@ -212,7 +212,7 @@ final class PcStream: @unchecked Sendable {
         return out
     }
 
-    private static func formatDescription(_ params: [Data], hevc: Bool) -> CMVideoFormatDescription? {
+    private static func makeFormat(_ params: [Data], hevc: Bool) -> CMVideoFormatDescription? {
         var out: CMVideoFormatDescription?
         let ptrs = params.map { p -> UnsafeMutablePointer<UInt8> in
             let m = UnsafeMutablePointer<UInt8>.allocate(capacity: p.count)
