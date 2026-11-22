@@ -279,29 +279,36 @@ final class PcStream: @unchecked Sendable {
     func requestKeyFrame() { api.pointee.requestIdr!() }
 }
 
-/// Opus packets to the speaker: Apple's own Opus decoder (AudioConverter) into an AVAudioEngine player.
+/// Opus packets to the speaker: Apple's own Opus decoder (AVAudioConverter) into an AVAudioEngine player.
 final class OpusPlayer: @unchecked Sendable {
-    private var converter: AudioConverterRef?
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
-    private let format: AVAudioFormat
+    private let opus: AVAudioFormat
+    private let pcm: AVAudioFormat
+    private let converter: AVAudioConverter
     private let samplesPerFrame: Int
+    private var failures = 0
     private(set) var ready = false
 
     init?(sampleRate: Double, channels: Int, samplesPerFrame: Int) {
-        guard let f = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate, channels: AVAudioChannelCount(channels), interleaved: false) else { return nil }
-        format = f
-        self.samplesPerFrame = samplesPerFrame
         var input = AudioStreamBasicDescription(mSampleRate: sampleRate, mFormatID: kAudioFormatOpus, mFormatFlags: 0, mBytesPerPacket: 0,
                                                 mFramesPerPacket: UInt32(samplesPerFrame), mBytesPerFrame: 0,
                                                 mChannelsPerFrame: UInt32(channels), mBitsPerChannel: 0, mReserved: 0)
-        var output = f.streamDescription.pointee
-        guard AudioConverterNew(&input, &output, &converter) == noErr else { return nil }
+        guard let o = AVAudioFormat(streamDescription: &input),
+              let p = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate, channels: AVAudioChannelCount(channels), interleaved: false),
+              let c = AVAudioConverter(from: o, to: p) else {
+            AppLog.line("pc screens: no Opus decoder for \(sampleRate) Hz, \(channels) channels")
+            return nil
+        }
+        opus = o
+        pcm = p
+        converter = c
+        self.samplesPerFrame = samplesPerFrame
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try AVAudioSession.sharedInstance().setActive(true)
             engine.attach(player)
-            engine.connect(player, to: engine.mainMixerNode, format: f)
+            engine.connect(player, to: engine.mainMixerNode, format: p)
             try engine.start()
             player.play()
             ready = true
@@ -310,49 +317,40 @@ final class OpusPlayer: @unchecked Sendable {
         }
     }
 
-    private final class Packet {
-        var data: UnsafeRawPointer?
-        var size: UInt32 = 0
-        let desc = UnsafeMutablePointer<AudioStreamPacketDescription>.allocate(capacity: 1)
-        var given = false
-        deinit { desc.deallocate() }
-    }
-
     /// Decodes one packet and queues it. True if it decoded.
     func play(_ data: UnsafeBufferPointer<UInt8>) -> Bool {
-        guard let converter, let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samplesPerFrame)) else { return false }
-        let packet = Packet()
-        packet.data = UnsafeRawPointer(data.baseAddress)
-        packet.size = UInt32(data.count)
-        packet.desc.pointee = AudioStreamPacketDescription(mStartOffset: 0, mVariableFramesInPacket: 0, mDataByteSize: UInt32(data.count))
-        var frames = UInt32(samplesPerFrame)
-        let status = withExtendedLifetime(packet) {
-            AudioConverterFillComplexBuffer(converter, { _, ioPackets, ioData, outDesc, user in
-                let p = Unmanaged<Packet>.fromOpaque(user!).takeUnretainedValue()
-                if p.given {
-                    ioPackets.pointee = 0
-                    return 1 // no more for now
-                }
-                p.given = true
-                ioPackets.pointee = 1
-                ioData.pointee.mNumberBuffers = 1
-                ioData.pointee.mBuffers.mData = UnsafeMutableRawPointer(mutating: p.data)
-                ioData.pointee.mBuffers.mDataByteSize = p.size
-                ioData.pointee.mBuffers.mNumberChannels = 0
-                if let outDesc { outDesc.pointee = p.desc }
-                return noErr
-            }, Unmanaged.passUnretained(packet).toOpaque(), &frames, buf.mutableAudioBufferList, nil)
+        guard let base = data.baseAddress, data.count > 0 else { return false }
+        let packet = AVAudioCompressedBuffer(format: opus, packetCapacity: 1, maximumPacketSize: data.count)
+        packet.data.copyMemory(from: base, byteCount: data.count)
+        packet.byteLength = UInt32(data.count)
+        packet.packetCount = 1
+        packet.packetDescriptions?.pointee = AudioStreamPacketDescription(mStartOffset: 0, mVariableFramesInPacket: 0,
+                                                                          mDataByteSize: UInt32(data.count))
+        guard let out = AVAudioPCMBuffer(pcmFormat: pcm, frameCapacity: AVAudioFrameCount(max(samplesPerFrame, 960))) else { return false }
+        var given = false
+        var error: NSError?
+        let status = converter.convert(to: out, error: &error) { _, inputStatus in
+            if given {
+                inputStatus.pointee = .noDataNow
+                return nil
+            }
+            given = true
+            inputStatus.pointee = .haveData
+            return packet
         }
-        guard (status == noErr || status == 1), frames > 0 else { return false }
-        buf.frameLength = frames
-        if ready { player.scheduleBuffer(buf, completionHandler: nil) }
+        guard status != .error, out.frameLength > 0 else {
+            failures += 1
+            if failures <= 3 || failures % 500 == 0 {
+                AppLog.line("pc screens: an Opus packet of \(data.count) bytes did not decode (status \(status.rawValue), \(out.frameLength) frames, \(String(describing: error))), \(failures) so far")
+            }
+            return false
+        }
+        if ready { player.scheduleBuffer(out, completionHandler: nil) }
         return true
     }
 
     func stop() {
         player.stop()
         engine.stop()
-        if let c = converter { AudioConverterDispose(c) }
-        converter = nil
     }
 }

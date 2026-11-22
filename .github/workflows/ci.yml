@@ -158,11 +158,16 @@ jobs:
           test -s out/glasses-3840x1080.png
 
       - name: Check the PC screen
-        continue-on-error: true
+        if: env.HOST != ''
         run: |
           set -euo pipefail
           jq '.pc' out/space.json
-          jq -e '.pc.paired and .pc.framesShown > 30' out/space.json
+          jq -e '.pc.paired and .pc.framesShown > 30 and (.pc.videoLayerFailed | not)' out/space.json
+
+      - name: Check the PC screen's sound
+        if: env.HOST != ''
+        continue-on-error: true
+        run: jq -e '.pc.audioDecoded > 100' out/space.json
 
       - uses: actions/upload-artifact@v4
         if: always()
