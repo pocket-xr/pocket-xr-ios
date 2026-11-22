@@ -300,6 +300,8 @@ final class SpaceController: ObservableObject {
         for w in webOnly.windows {
             if let i = space.index(w.id) { space.windows[i] = w }
         }
+        // The launcher and Control Center move aside if the arrangement landed on them.
+        for w in space.windows where w.kind == .launcher || w.kind == .controlCenter { space.makeRoom(for: w.id) }
         changed()
     }
 

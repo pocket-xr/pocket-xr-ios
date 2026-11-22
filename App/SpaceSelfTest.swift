@@ -37,11 +37,17 @@ enum SpaceSelfTest {
 
     /// Aims at an element's middle on a web window and clicks, as a trackpad tap would.
     private static func clickElement(_ c: SpaceController, _ id: UUID, _ web: WKWebView, _ element: String, _ r: inout Results) async {
-        guard let host = c.host(id), let xy = await js(web, "__pxrRect('\(element)')") as? [Double], xy.count == 2 else {
-            r.errors.append("no rect for \(element)")
-            return
+        guard let host = c.host(id) else { r.errors.append("no host"); return }
+        var xy: [Double]?
+        for _ in 0..<10 {
+            let raw = await js(web, "typeof __pxrRect === 'function' ? __pxrRect('\(element)') : 'not ready'")
+            if let a = raw as? [NSNumber], a.count == 2 { xy = a.map { $0.doubleValue }; break }
+            AppLog.line("demo: rect for \(element): \(String(describing: raw))")
+            await wait(0.3)
         }
+        guard let xy = xy else { r.errors.append("no rect for \(element)"); return }
         c.aim(at: id, u: xy[0] / Double(host.bounds.width), v: xy[1] / Double(host.bounds.height))
+        if c.hover?.id != id { r.errors.append("pointer on another window for \(element)") }
         c.click()
         await wait(0.6)
     }
@@ -90,6 +96,8 @@ enum SpaceSelfTest {
             let before = c.space.windows.count
             let mid = tile.convert(CGPoint(x: tile.bounds.midX, y: tile.bounds.midY), to: host)
             c.aim(at: lid, u: Double(mid.x / host.bounds.width), v: Double(mid.y / host.bounds.height))
+            if c.hover?.id != lid { r.errors.append("pointer not on the launcher") }
+            AppLog.line("demo: launcher tile at \(mid) of \(host.bounds.size)")
             c.click()
             await wait(0.5)
             r.windowsAfterLauncherClick = c.space.windows.count

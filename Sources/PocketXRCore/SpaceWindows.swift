@@ -142,6 +142,21 @@ public struct SpaceWindows: Codable, Equatable, Sendable {
         return w
     }
 
+    /// Moves a window sideways, on the side nearer where it is, until it overlaps no other. Not while locked.
+    public mutating func makeRoom(for id: UUID) {
+        guard !locked, let i = index(id) else { return }
+        var w = windows[i]
+        let start = w.yawDeg
+        var tries = 0
+        while let other = overlapping(w), tries < Self.maxWindows {
+            let right = other.yawDeg - (other.widthDeg + w.widthDeg) / 2 - SpaceLayout.gapDeg
+            let left = other.yawDeg + (other.widthDeg + w.widthDeg) / 2 + SpaceLayout.gapDeg
+            w.yawDeg = SpaceAim.wrap(abs(SpaceAim.wrap(right - start)) <= abs(SpaceAim.wrap(left - start)) ? right : left)
+            tries += 1
+        }
+        windows[i] = w
+    }
+
     /// The first other window whose angular box overlaps [w]'s.
     public func overlapping(_ w: SpaceWindow) -> SpaceWindow? {
         windows.first { o in

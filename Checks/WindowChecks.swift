@@ -80,6 +80,13 @@ func windowChecks() {
     check(yaws.count == 3 && near(yaws[1], 0, 1e-9) && near(yaws[0], -yaws[2], 1e-9), "row arrangement is centred")
     check(u.windows.allSatisfy { u.overlapping($0) == nil }, "arranged windows do not overlap")
 
+    // Making room: a window dropped on another moves beside it.
+    var room = u
+    let extra = room.open(.launcher, title: "L", layoutWidth: 960, layoutHeight: 600, widthDeg: 30, at: SpaceAim(yawDeg: 90, pitchDeg: 0))!
+    if let i = room.index(extra.id) { room.windows[i].yawDeg = 0 }
+    room.makeRoom(for: extra.id)
+    check(room.overlapping(room.window(extra.id)!) == nil, "makeRoom clears the overlap")
+
     // Focus order follows the windows left to right (yaw falling), wrapping.
     var f = u
     let leftmost = f.windows.max { $0.yawDeg < $1.yawDeg }!.id
