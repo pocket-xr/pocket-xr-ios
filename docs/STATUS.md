@@ -81,6 +81,19 @@ repo on the runner and run with its test mode (PXR_HOST_TEST=1, it captured the 
 | Real PC over Wi-Fi, latency, a sleeping PC, reconnects, keyboard keys into the PC, a phone keyboard and mouse into the PC | **Untested** |
 | HEVC | Offered when the device decodes it in hardware; the Simulator's run used H.264 |
 
+## Phase 3: Steady mode, Record, files, tour, languages (22 Nov 2026)
+
+Checked in CI runs 44979305340 and 44980123316 on the Simulator.
+
+| Item | State |
+|---|---|
+| Steady mode: windows in a row, one picture across the display (never side by side), head held still; remembered | **Passes** in the Simulator (drawing only) |
+| Steady mode in the glasses: Ultrawide and Spatial Anchor through PocketXRCore's SettingsControl (the Deck's and Mac's code), started when the glasses' USB link is up | Built; **untested**: needs the USB link on a real device (phase 0's open question). With no link, Steady mode is drawing only, for glasses that hold the picture themselves. |
+| Record: the glasses' view to an H.264 video, saved to Photos | **Passes**: 3 s recorded, 63 to 77 frames, 3.2 s long; a frame taken from the video shows the PC screen in it. Photos itself not tried (the test keeps the file). |
+| Save settings to a file and restore it; Share layouts and Import layouts | **Passes**: 3 windows before and after a restore, layouts imported |
+| Tour (nine pages, first start and from Settings), glasses setup check (steps for each model; iOS cannot tell the model, so the user picks it) | Built; **not driven** by the self-test |
+| 11 languages, as on Android: English, Korean, Japanese, Chinese (simplified and traditional), Spanish, Portuguese (Brazil), French, German, Italian, Russian | **In the app**: all 11 compiled (CI checks German and Japanese). The translations are new and unchecked by a native reader. The glasses and head tracking details screen and some error lines stay in English. |
+
 ## Only a real device can prove
 
 - That a USB-C iPhone or iPad shows Pocket XR's own picture on the glasses (rather than mirroring), at what size
@@ -94,5 +107,5 @@ repo on the runner and run with its test mode (PXR_HOST_TEST=1, it captured the 
 ## CI minutes
 
 The repo is private, so macOS runs count against the organisation's free 2,000 Actions minutes a month at 10x.
-By 22 Nov 2026 this repo had used about 110 macOS minutes in November (about 1,100 of the 2,000; about $6.80 at list price, charged $0). A full run takes about 5 minutes, so roughly 17 more fit this month; the allowance resets on 1 December. With no payment method on the organisation, runs stop when the minutes are
+By 22 Nov 2026 this repo had used about 115 macOS minutes in November (about 1,150 of the 2,000; charged $0). A full run takes about 5 minutes, so roughly 17 more fit this month; the allowance resets on 1 December. With no payment method on the organisation, runs stop when the minutes are
 used up; nothing is charged. Making the repo public makes them free.
