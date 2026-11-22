@@ -17,7 +17,7 @@ There is no iPhone or iPad to test on yet (21 Nov 2026), so everything is checke
 
 ## Phase 1 (started 22 Nov 2026): the Space
 
-Checked in CI run 44970048573 (22 Nov 2026) on the iOS 26.4.1 Simulator, with no glasses (screenshot: phase1-simulator.png): the Space draws on the
+Checked in CI runs 44970048573 and 44973052658 (22 Nov 2026) on the iOS 26.4.1 Simulator, with no glasses (screenshot: phase1-simulator.png): the Space draws on the
 phone as a preview, and a self-test (App/SpaceSelfTest.swift) drives it the way the trackpad does and reads the
 results back from the pages themselves.
 
@@ -26,7 +26,8 @@ results back from the pages themselves.
 | Window model: open beside others, move, resize, push and pull, bend, snap, arrange, Adjust all, Lock screens, focus order, save and load | **Passes** the core checks (Checks/WindowChecks.swift, over 1,100 checks in all) |
 | Windows drawn in 3D from the head pose (Core Animation, live views) | **Seen** in the Simulator preview: two test pages and the launcher in perspective, the pointer on a page |
 | Click on a web page through the pointer | **Passes**: the page's button reports "clicked 1" |
-| Click into a web text field and type | **Passes**: the field holds "hello". Finding: the click also gives the web view focus, so iOS raises the phone's own keyboard over the trackpad (seen in the screenshot). Typing still works either way; whether that is wanted is Mike's call. |
+| Click into a web text field and type, Backspace | **Passes** (run 44973052658): "hellp", Backspace, "o" leaves "hello" in the field. |
+| The phone's keyboard comes up only with the Keyboard button (Mike's choice, 22 Nov 2026) | **Passes**: after the click into the field, the key catcher holds the focus and no keyboard is up (the earlier run showed iOS's keyboard over the trackpad). |
 | Two-finger scroll of a scrollable box | **Passes**: the list scrolled 800 points |
 | Launcher: aim at a tile and click opens a web window | **Passes** (3 to 4 windows) |
 | Arrange keeps windows apart and moves the launcher aside | **Passes** |
