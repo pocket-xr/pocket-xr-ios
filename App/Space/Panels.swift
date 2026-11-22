@@ -42,14 +42,17 @@ struct LauncherSite: Codable, Equatable {
     var url: String
     var symbol: String
 
+    /// Not a site: opens the next PC screen.
+    static let pcScreen = "pocketxr:pcscreen"
+
     static let defaults: [LauncherSite] = [
+        LauncherSite(name: "PC screen", url: LauncherSite.pcScreen, symbol: "desktopcomputer"),
         LauncherSite(name: "Google", url: "https://www.google.com", symbol: "magnifyingglass"),
         LauncherSite(name: "YouTube", url: "https://m.youtube.com", symbol: "play.rectangle.fill"),
         LauncherSite(name: "Gmail", url: "https://mail.google.com", symbol: "envelope.fill"),
         LauncherSite(name: "Docs", url: "https://docs.google.com", symbol: "doc.text.fill"),
         LauncherSite(name: "Wikipedia", url: "https://en.m.wikipedia.org", symbol: "book.fill"),
         LauncherSite(name: "Reddit", url: "https://www.reddit.com", symbol: "bubble.left.and.bubble.right.fill"),
-        LauncherSite(name: "News", url: "https://news.google.com", symbol: "newspaper.fill"),
         LauncherSite(name: "Test page", url: TestPage.url, symbol: "checkmark.seal.fill"),
     ]
 }
@@ -166,6 +169,7 @@ final class ControlCenterPanel: PanelContent {
     override var title: String { "Control Center" }
     private let lockSwitch = UISwitch()
     private let trackingSwitch = UISwitch()
+    private let readabilitySwitch = UISwitch()
     private let followControl = UISegmentedControl(items: ["Stay in place", "Smooth Follow"])
     private let shapeRow = UIStackView()
     private let shapeTitle = UILabel()
@@ -236,6 +240,15 @@ final class ControlCenterPanel: PanelContent {
         }, for: .valueChanged)
         stack.addArrangedSubview(trackRow)
 
+        let readRow = UIStackView(arrangedSubviews: [label("Readability: larger text", size: 24), UIView(), readabilitySwitch])
+        readRow.axis = .horizontal
+        readabilitySwitch.onTintColor = accent
+        readabilitySwitch.addAction(UIAction { [weak self] _ in
+            guard let self = self else { return }
+            controller.setReadability(self.readabilitySwitch.isOn)
+        }, for: .valueChanged)
+        stack.addArrangedSubview(readRow)
+
         shapeTitle.font = .systemFont(ofSize: 22, weight: .semibold)
         shapeTitle.textColor = ink2
         stack.addArrangedSubview(shapeTitle)
@@ -257,6 +270,7 @@ final class ControlCenterPanel: PanelContent {
 
     /// For the self-test.
     var lockSwitchForTest: UISwitch { lockSwitch }
+    var readabilitySwitchForTest: UISwitch { readabilitySwitch }
     func shapeButtonForTest(_ s: WindowShape) -> UIButton? {
         guard let i = WindowShape.allCases.firstIndex(of: s), i < shapeRow.arrangedSubviews.count else { return nil }
         return shapeRow.arrangedSubviews[i] as? UIButton
@@ -267,6 +281,7 @@ final class ControlCenterPanel: PanelContent {
         guard let c = controller else { return }
         lockSwitch.isOn = c.space.locked
         trackingSwitch.isOn = c.tracking.headTracking
+        readabilitySwitch.isOn = c.readability
         followControl.selectedSegmentIndex = c.tracking.trackingMode == .smoothFollow ? 1 : 0
         if let w = c.focusedWeb {
             let now = WindowShape.current(width: w.layoutWidth, height: w.layoutHeight - Double(WindowHost.barHeight))
@@ -276,10 +291,15 @@ final class ControlCenterPanel: PanelContent {
             shapeTitle.text = "This window: click a web window first"
             shapeRow.isHidden = true
         }
-        let webCount = c.space.windows.filter { if case .web = $0.kind { return true } else { return false } }.count
+        let webCount = c.space.windows.filter { w in
+            switch w.kind {
+            case .web, .pcScreen: return true
+            default: return false
+            }
+        }.count
         let tracking = c.tracked ? "Head tracking on"
             : (Probe.shared.snapshot.link == .streaming ? "Head tracking off" : "No head tracking (drag the pointer to the edge to look around)")
-        status.text = "\(webCount) web window\(webCount == 1 ? "" : "s").  \(tracking)"
+        status.text = "\(webCount) window\(webCount == 1 ? "" : "s").  \(tracking)"
         arrangeRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let count = max(1, min(3, webCount))
         for layout in SpaceLayout.choices(count: count) {

@@ -103,6 +103,17 @@ func windowChecks() {
     check(sh == shBefore, "no shape change while locked")
     check(WindowShape.current(width: 1280, height: 800) == nil && WindowShape.current(width: 1920, height: 1080) == .wide, "current shape")
 
+    // PC screen slots: the lowest free one, none past three.
+    var pcs = SpaceWindows()
+    check(pcs.freePcSlot() == 0, "first PC screen is slot 0")
+    pcs.open(.pcScreen(slot: 0), title: "PC 1", layoutWidth: 1600, layoutHeight: 956, at: SpaceAim(yawDeg: 0, pitchDeg: 0))
+    pcs.open(.pcScreen(slot: 2), title: "PC 3", layoutWidth: 1600, layoutHeight: 956, at: SpaceAim(yawDeg: 0, pitchDeg: 0))
+    check(pcs.freePcSlot() == 1, "a gap is filled first")
+    pcs.open(.pcScreen(slot: 1), title: "PC 2", layoutWidth: 1600, layoutHeight: 956, at: SpaceAim(yawDeg: 0, pitchDeg: 0))
+    check(pcs.freePcSlot() == nil, "no fourth PC screen")
+    let pcData = try? JSONEncoder().encode(pcs)
+    check(pcData.flatMap { try? JSONDecoder().decode(SpaceWindows.self, from: $0) } == pcs, "PC screens survive a save and load")
+
     // Focus order follows the windows left to right (yaw falling), wrapping.
     var f = u
     let leftmost = f.windows.max { $0.yawDeg < $1.yawDeg }!.id

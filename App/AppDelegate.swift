@@ -9,6 +9,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         AppLog.line("Pocket XR \(AppInfo.version) (\(AppInfo.build)) starting on \(UIDevice.current.model), iOS \(UIDevice.current.systemVersion)")
         Probe.shared.start()
+        PcCrypto.installGcm()
+        UIDeviceName.name = UIDevice.current.name
         _ = SpaceController.shared
         MouseInput.shared.start()
         SelfTest.runIfAsked()

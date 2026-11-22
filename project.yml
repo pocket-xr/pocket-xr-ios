@@ -24,6 +24,8 @@ targets:
     dependencies:
       - package: PocketXRCore
         product: PocketXRCore
+      - package: PocketXRCore
+        product: PXRMoonlight
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.hayeco.pocketxr.ios
@@ -60,6 +62,8 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSLocalNetworkUsageDescription: Pocket XR talks to your glasses over their USB cable to read head tracking, and finds your computer on the local network for PC screens.
+        NSBonjourServices:
+          - _nvstream._tcp
         ITSAppUsesNonExemptEncryption: false
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true

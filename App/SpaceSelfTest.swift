@@ -21,6 +21,8 @@ enum SpaceSelfTest {
         var controlCenterLocked = false
         var closedByWindowKey = false
         var sideBySideOn = false
+        /// A PC screen against the stand-in computer CI runs (-PXRPcAddress), when there is one.
+        var pc: PcScreenReport?
         var arrangedWithoutOverlap = false
         var errors = [String]()
         var done = false
@@ -178,6 +180,23 @@ enum SpaceSelfTest {
             }
             c.click()
             r.closedByWindowKey = c.space.window(b) == nil
+        }
+
+        // A PC screen: CI runs Pocket XR for Mac's computer side (its test picture) and gives the PIN.
+        if UserDefaults.standard.string(forKey: "PXRPcAddress") != nil {
+            if let pid = c.openPcScreen(), let host = c.host(pid), let pc = host.content as? PcScreenContent {
+                for _ in 0..<90 {
+                    if pc.report().framesShown > 90 { break }
+                    await wait(0.5)
+                }
+                // A click in the picture's middle goes to the computer as a mouse move and click.
+                pc.click(at: CGPoint(x: host.bounds.midX, y: (host.bounds.height - WindowHost.barHeight) / 2))
+                await wait(1)
+                r.pc = pc.report()
+                AppLog.line("demo: PC screen \(r.pc!.state), \(r.pc!.framesShown) frames shown of \(r.pc!.framesIn), sound \(r.pc!.audioDecoded)/\(r.pc!.audioPackets)")
+            } else {
+                r.errors.append("no PC screen")
+            }
         }
 
         // Side by side, as for glasses in 3D: left on for the screenshot CI takes afterwards.

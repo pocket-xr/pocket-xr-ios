@@ -17,7 +17,7 @@ concurrency:
 jobs:
   ios:
     runs-on: macos-26
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +28,9 @@ jobs:
           sudo xcode-select -s "$XC/Contents/Developer"
           xcodebuild -version
           sw_vers
+
+      - name: Make Moonlight's three copies (PC screens)
+        run: bash scripts/gen-moonlight.sh
 
       - name: Core unit tests
         run: swift test 2>&1 | tail -20
@@ -55,8 +58,19 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild -project PocketXR.xcodeproj -scheme PocketXR -configuration Debug -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build > build-sim.log 2>&1             || { grep -E "error:" build-sim.log | sort -u | head -60; exit 1; }
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build > build-sim.log 2>&1             || { grep -E "error:" build-sim.log | sort -u | head -60; exit 1; }
           tail -3 build-sim.log
+
+      - name: Build the stand-in computer (Pocket XR for Mac's computer side)
+        continue-on-error: true
+        timeout-minutes: 8
+        run: |
+          # Pocket XR for Mac (public) streams its test picture and tone when PXR_HOST_TEST=1, so a PC screen can be
+          # tried end to end in the Simulator: pairing, launch, video and sound.
+          git clone --depth 1 https://github.com/pocket-xr/pocket-xr-mac.git mac-host
+          cd mac-host
+          swift build -c release --product PocketXR 2>&1 | grep -E "error|warning: unre|Compiling|Build complete" | tail -15
+          test -x .build/release/PocketXR && echo "HOST=$PWD/.build/release/PocketXR" >> "$GITHUB_ENV"
 
       - name: Run in the Simulator against fake glasses
         timeout-minutes: 10
@@ -64,6 +78,13 @@ jobs:
           set -euo pipefail
           swift build -c release --product FakeGlasses
           .build/release/FakeGlasses 52998 600 > fake-glasses.log 2>&1 &
+          PC_ARGS=()
+          if [ -n "${HOST:-}" ]; then
+            PXR_HOST_TEST=1 "$HOST" --host --seconds 500 > host.log 2>&1 &
+            # The PIN the app shows (-PXRPcPin) given to the host, again and again while it may be pairing.
+            (for i in $(seq 1 60); do "$HOST" --host-pin 4321 >/dev/null 2>&1 || true; sleep 2; done) &
+            PC_ARGS=(-PXRPcAddress 127.0.0.1:50989 -PXRPcPin 4321)
+          fi
           UDID=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | test("iOS-26")) | .value[] | select(.name | test("^iPhone"))][0].udid')
           xcrun simctl list runtimes
           echo "$(date +%T) Simulator $UDID"
@@ -73,9 +94,9 @@ jobs:
           echo "$(date +%T) booted"
           xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/PocketXR.app
           xcrun simctl launch --stdout="$PWD/app.log" --stderr="$PWD/app.log" "$UDID" com.hayeco.pocketxr.ios \
-            -PXRProbeHost 127.0.0.1 -PXRSelfTest 20 -PXRDemo YES -PXRFreshSpace YES
+            -PXRProbeHost 127.0.0.1 -PXRSelfTest 20 -PXRDemo YES -PXRFreshSpace YES ${PC_ARGS[@]+"${PC_ARGS[@]}"}
           DATA=$(xcrun simctl get_app_container "$UDID" com.hayeco.pocketxr.ios data)
-          for i in $(seq 1 90); do
+          for i in $(seq 1 150); do
             [ -f "$DATA/Documents/selftest.json" ] && [ -f "$DATA/Documents/space.json" ] && break
             sleep 1
           done
@@ -83,10 +104,13 @@ jobs:
           mkdir -p out
           cp "$DATA"/Documents/* out/ || true
           xcrun simctl io "$UDID" screenshot out/phone.png
-          cat app.log | tail -40
+          grep -E "pc screen|demo:|pc screens" "$DATA/Documents/pocketxr-log.txt" | tail -60 || true
           cat fake-glasses.log
+          [ -f host.log ] && grep -vE "^\s*$" host.log | tail -60 || true
 
       - name: Try the Simulator's external display
+        # Off: in five runs the headless runner's Simulator never gave the app an external display (docs/STATUS.md).
+        if: false
         continue-on-error: true
         timeout-minutes: 4
         run: |
@@ -133,6 +157,13 @@ jobs:
           test -s out/glasses-1920x1080.png
           test -s out/glasses-3840x1080.png
 
+      - name: Check the PC screen
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          jq '.pc' out/space.json
+          jq -e '.pc.paired and .pc.framesShown > 30' out/space.json
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -141,5 +172,6 @@ jobs:
             out/
             app.log
             fake-glasses.log
+            host.log
             build-*.log
           retention-days: 14

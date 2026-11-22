@@ -24,6 +24,9 @@ final class SpaceController: ObservableObject {
     @Published var spatialMouse = false
     /// The phone's keyboard is up (the Keyboard button). Clicking into a web field never raises it by itself.
     @Published var keyboardOn = false
+    /// Readability: larger text on 1080p glasses. Web pages are zoomed by 4/3 and PC screens stream at 3/4 of the
+    /// pixels each way, so text is a third bigger (Android 1.6.4's 4/3 density, the Mac's 1440 x 810 screen).
+    @Published private(set) var readability = false
     /// Where the Space is drawn: the glasses, or the phone's preview when no glasses are connected.
     @Published private(set) var onGlasses = false
 
@@ -287,6 +290,28 @@ final class SpaceController: ObservableObject {
         return w.id
     }
 
+    /// Opens the next PC screen (up to three), in front.
+    @discardableResult
+    func openPcScreen() -> UUID? {
+        guard let slot = space.freePcSlot() else { return nil }
+        guard let w = space.open(.pcScreen(slot: slot), title: "PC screen \(slot + 1)", layoutWidth: SpaceWindows.pcWidth,
+                                 layoutHeight: SpaceWindows.pcHeight + Double(WindowHost.barHeight), widthDeg: 44, at: viewAim) else { return nil }
+        makeHost(w)
+        changed()
+        return w.id
+    }
+
+    func setReadability(_ on: Bool) {
+        guard on != readability else { return }
+        readability = on
+        for (_, h) in hosts {
+            if let web = h.content as? WebContent { web.web.pageZoom = on ? 4.0 / 3.0 : 1 }
+            if let pc = h.content as? PcScreenContent { pc.setReadability(on) }
+        }
+        AppLog.line("space: Readability \(on ? "on" : "off")")
+        changed()
+    }
+
     @discardableResult
     func openLauncher() -> UUID? {
         if let w = space.windows.first(where: { $0.kind == .launcher }) {
@@ -321,6 +346,7 @@ final class SpaceController: ObservableObject {
     }
 
     func close(_ id: UUID) {
+        (hosts[id]?.content as? PcScreenContent)?.close()
         space.close(id)
         hosts[id]?.removeFromSuperview()
         hosts[id] = nil
@@ -334,9 +360,14 @@ final class SpaceController: ObservableObject {
     }
 
     func arrange(_ layout: ArrangeLayout) {
-        // Only web windows take part; the launcher and Control Center stay where they are.
+        // Only web windows and PC screens take part; the launcher and Control Center stay where they are.
         var webOnly = space
-        webOnly.windows = space.windows.filter { if case .web = $0.kind { return true } else { return false } }
+        webOnly.windows = space.windows.filter { w in
+            switch w.kind {
+            case .web, .pcScreen: return true
+            default: return false
+            }
+        }
         webOnly.arrange(layout, centreYawDeg: viewAim.yawDeg)
         for w in webOnly.windows {
             if let i = space.index(w.id) { space.windows[i] = w }
@@ -374,13 +405,25 @@ final class SpaceController: ObservableObject {
         switch w.kind {
         case .web(let url):
             let web = WebContent(url: url, desktop: w.desktop)
+            if readability { web.web.pageZoom = 4.0 / 3.0 }
             web.onChange = { [weak self, weak web] in
                 guard let self = self, let web = web else { return }
                 self.webChanged(w.id, web)
             }
             content = web
         case .launcher:
-            content = LauncherPanel(sites: LauncherSite.defaults) { [weak self] url in _ = self?.openWeb(url) }
+            content = LauncherPanel(sites: LauncherSite.defaults) { [weak self] url in
+                if url == LauncherSite.pcScreen { _ = self?.openPcScreen() } else { _ = self?.openWeb(url) }
+            }
+        case .pcScreen(let slot):
+            let pc = PcScreenContent(slot: slot)
+            pc.setReadability(readability)
+            pc.onTitle = { [weak self, weak pc] in
+                guard let self = self, let pc = pc, let i = self.space.index(w.id) else { return }
+                self.space.windows[i].title = pc.title
+                self.hosts[w.id]?.setTitle(pc.title)
+            }
+            content = pc
         case .controlCenter:
             let panel = ControlCenterPanel(controller: self)
             controlPanel = panel
@@ -448,6 +491,7 @@ final class SpaceController: ObservableObject {
         var space: SpaceWindows
         var presets: [SavedLayout]
         var tracking: SpaceSettings?
+        var readability: Bool?
     }
 
     private static let key = "space.v1"
@@ -465,7 +509,7 @@ final class SpaceController: ObservableObject {
     func saveNow() {
         var s = space
         s.windows = s.windows.filter { $0.kind != .controlCenter }
-        if let data = try? JSONEncoder().encode(Saved(space: s, presets: presets, tracking: tracking)) {
+        if let data = try? JSONEncoder().encode(Saved(space: s, presets: presets, tracking: tracking, readability: readability)) {
             UserDefaults.standard.set(data, forKey: Self.key)
         }
     }
@@ -476,5 +520,6 @@ final class SpaceController: ObservableObject {
         space = s.space
         presets = s.presets
         if let t = s.tracking { tracking = t }
+        readability = s.readability ?? false
     }
 }

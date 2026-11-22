@@ -12,6 +12,8 @@ public enum SpaceWindowKind: Codable, Equatable, Sendable {
     case launcher
     /// Pocket XR's Control Center.
     case controlCenter
+    /// Another computer's screen, streamed (PC screen 1, 2 or 3: slot 0, 1, 2).
+    case pcScreen(slot: Int)
 }
 
 /// One window in the Space.
@@ -127,7 +129,12 @@ public struct SpaceWindows: Codable, Equatable, Sendable {
     public static let launcherWidth = 960.0
     public static let launcherHeight = 600.0
     public static let controlWidth = 760.0
-    public static let controlHeight = 800.0
+    public static let controlHeight = 880.0
+    /// A PC screen's picture area, points (16:9 at the usual stream size's shape).
+    public static let pcWidth = 1600.0
+    public static let pcHeight = 900.0
+    /// At most three PC screens, as on the other platforms: one host instance each.
+    public static let pcScreens = 3
     /// Two windows' facing edges closer than this snap together, degrees.
     public static let snapDeg = 3.0
     /// Pushing and pulling change the distance by this factor a step.
@@ -181,6 +188,12 @@ public struct SpaceWindows: Codable, Equatable, Sendable {
             tries += 1
         }
         windows[i] = w
+    }
+
+    /// The PC screen slot a new PC screen takes: the lowest one not open, or nil when all three are.
+    public func freePcSlot() -> Int? {
+        let used = Set(windows.compactMap { w -> Int? in if case .pcScreen(let s) = w.kind { return s } else { return nil } })
+        return (0..<Self.pcScreens).first { !used.contains($0) }
     }
 
     /// The first other window whose angular box overlaps [w]'s.
