@@ -53,6 +53,34 @@ Limits found while building, for Mike to decide on:
   open question; planned for phase 3), hand tracking (no camera path on iPhone), Readability (phase 2, with PC
   screens).
 
+## Phase 2: PC screens and Readability (22 Nov 2026)
+
+How it is built: Moonlight's stream core (moonlight-common-c 874ac95, the copy Pocket XR for Android and Windows use,
+GPLv3) is built three times with prefixed names (scripts/gen-moonlight.sh), so up to three PC screens can stream in
+one iOS process, where Android and Windows use one process per screen. Its crypto runs on CommonCrypto and CryptoKit
+(no OpenSSL). Pairing, the client identity (kept in the keychain), the Pocket XR helper words, video into an
+AVSampleBufferDisplayLayer (hardware decoding) and Opus sound (AVAudioConverter) are ported from Pocket XR for Windows.
+
+Checked in CI run 44976618853 against a stand-in computer: Pocket XR for Mac's computer side, built from its public
+repo on the runner and run with its test mode (PXR_HOST_TEST=1, it captured the runner's own screen), on
+127.0.0.1:50989, with the PIN given by its `--host-pin`.
+
+| Item | State |
+|---|---|
+| Moonlight's core built three times for iPhone, iPad and the Simulator | **Passes** |
+| Client identity: RSA key and certificate in the keychain, TLS client certificate | **Passes** in the Simulator (ad hoc signed for the keychain) |
+| Pairing with a Pocket XR host (PIN), HTTPS with the pinned certificate, app list, launch | **Passes**: "paired", launch at 1920x1080@60 |
+| RTSP, control, video and sound streams | **Passes**: H.264 1920x1080, 95 of 95 frames into the video layer, layer not failed |
+| Sound (Opus, 48 kHz stereo, 5 ms packets) | **Passes**: 3,396 of 3,396 packets decoded and queued to the speaker (first try with AudioConverter decoded none; AVAudioConverter does) |
+| A click in the PC screen reaches the computer | **Seen** in the host's log ("3 input events") |
+| PC screen in the Space as a window; launcher tile; Close ends the host's session | Built; window and tile used by the self-test |
+| Pocket XR helper words (find, allow, PIN, status, screen-prepare) | Built; the stand-in host answered "say Yes" (allow) during pairing; not checked further |
+| Readability: web pages at 4/3 zoom, PC screens at 3/4 of the pixels each way, in the Control Center | Built; **not driven** by the self-test |
+| Two or three PC screens at once (the three copies) | Built; **only PC screen 1 tried** |
+| Finding computers without the helper (mDNS), typing an address, the PIN shown for Apollo or Sunshine | Not done: the helper broadcast and the saved address only |
+| Real PC over Wi-Fi, latency, a sleeping PC, reconnects, keyboard keys into the PC, a phone keyboard and mouse into the PC | **Untested** |
+| HEVC | Offered when the device decodes it in hardware; the Simulator's run used H.264 |
+
 ## Only a real device can prove
 
 - That a USB-C iPhone or iPad shows Pocket XR's own picture on the glasses (rather than mirroring), at what size
@@ -66,5 +94,5 @@ Limits found while building, for Mike to decide on:
 ## CI minutes
 
 The repo is private, so macOS runs count against the organisation's free 2,000 Actions minutes a month at 10x.
-By 22 Nov 2026 this repo had used about 90 macOS minutes in November (about 900 of the 2,000; about $5.60 at list price, charged $0). About 25 of those were one run stuck booting the Simulator before step timeouts were added. A full run takes about 4 to 5 minutes, so roughly 22 more fit this month; the allowance resets on 1 December. With no payment method on the organisation, runs stop when the minutes are
+By 22 Nov 2026 this repo had used about 100 macOS minutes in November (about 1,000 of the 2,000; about $6 at list price, charged $0). A full run takes about 5 minutes now (the stand-in computer is built each time), so roughly 18 more fit this month; the allowance resets on 1 December. With no payment method on the organisation, runs stop when the minutes are
 used up; nothing is charged. Making the repo public makes them free.

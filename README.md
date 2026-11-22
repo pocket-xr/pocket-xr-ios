@@ -28,3 +28,9 @@ In the Simulator, run `swift run FakeGlasses` on the Mac and launch the app with
 ## Licence
 
 GPL-3.0, as Pocket XR on other platforms.
+
+## Credits
+
+PC screens use [moonlight-common-c](https://github.com/moonlight-stream/moonlight-common-c) (Moonlight's stream core,
+GPLv3, with its `enet` and `nanors` parts, MIT), in `Native/moonlight/moonlight-common-c`, unchanged. Pairing and the
+stream's set-up follow Pocket XR for Windows, itself ported from moonlight-android's NvHTTP and PairingManager (GPLv3).
