@@ -94,6 +94,27 @@ Checked in CI runs 44979305340 and 44980123316 on the Simulator.
 | Tour (nine pages, first start and from Settings), glasses setup check (steps for each model; iOS cannot tell the model, so the user picks it) | Built; **not driven** by the self-test |
 | 11 languages, as on Android: English, Korean, Japanese, Chinese (simplified and traditional), Spanish, Portuguese (Brazil), French, German, Italian, Russian | **In the app**: all 11 compiled (CI checks German and Japanese). The translations are new and unchecked by a native reader. The glasses and head tracking details screen and some error lines stay in English. |
 
+## Phase 4: PC VR (22 Nov 2026)
+
+ALVR 21.0.0-dev14 (commit e8ca92b with Android's one patch), the version Pocket XR for Android and the PC helper's
+streamer use. Its client core (Rust, MIT) is built for iPhone and the Simulator by scripts/build-alvr.sh in its own
+workflow (2.5 minutes) and kept in the Actions cache; CI's app build links it from there.
+
+| Item | State |
+|---|---|
+| ALVR's client core built for iOS (device and Simulator) and linked into the app | **Passes** (ALVR run 44981814833, CI run 44982251775) |
+| ALVR starts and stops inside the app on the Simulator | **Passes**: it named this phone "5425.client.local." and its mDNS service "_alvr._tcp.local." |
+| SteamVR started through the Pocket XR PC helper (start, status, idr, as on Android); PC VR from the launcher; Back to your Space on the phone, or hold the controller's Home for 2 s | Built; **untested** (no SteamVR on the runner) |
+| Video: iOS has no ALVR decoder, so ALVR's frames go to an AVSampleBufferDisplayLayer (hardware decoding), full screen on the glasses, one half per eye; ALVR told each frame was decoded and shown | Built; **untested** |
+| Head pose from the Space's head tracking; the two eyes' views (the glasses' field, 6 % wider); predicted as far as ALVR's pipeline | Built; **untested**. Without the glasses' head tracking on iOS, PC VR has none. |
+| A game controller or two Joy-Cons as two Oculus Touch hands (buttons, triggers, sticks, touches), held in front of the body | Built; **untested** |
+| The glasses switched to 3D while PC VR runs (through their control link) | Built; **untested** (needs the USB link) |
+| Sound: ALVR plays it itself | **Untested** |
+
+Not done, compared with Android: the late rotation warp (Android re-turns each frame to the newest head pose), hands
+as controllers (no camera path on iPhone), haptics (Android does not send them either), the loading scene and the
+tile's live SteamVR state.
+
 ## Only a real device can prove
 
 - That a USB-C iPhone or iPad shows Pocket XR's own picture on the glasses (rather than mirroring), at what size
@@ -107,5 +128,5 @@ Checked in CI runs 44979305340 and 44980123316 on the Simulator.
 ## CI minutes
 
 The repo is private, so macOS runs count against the organisation's free 2,000 Actions minutes a month at 10x.
-By 22 Nov 2026 this repo had used about 115 macOS minutes in November (about 1,150 of the 2,000; charged $0). A full run takes about 5 minutes, so roughly 17 more fit this month; the allowance resets on 1 December. With no payment method on the organisation, runs stop when the minutes are
+By 22 Nov 2026 this repo had used about 138 macOS minutes in November by GitHub's count, which lags by a run or two (about 1,380 of the 2,000; charged $0). A full run takes about 5 minutes, so roughly 12 more fit this month; the allowance resets on 1 December. With no payment method on the organisation, runs stop when the minutes are
 used up; nothing is charged. Making the repo public makes them free.

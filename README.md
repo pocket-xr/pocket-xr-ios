@@ -34,3 +34,6 @@ GPL-3.0, as Pocket XR on other platforms.
 PC screens use [moonlight-common-c](https://github.com/moonlight-stream/moonlight-common-c) (Moonlight's stream core,
 GPLv3, with its `enet` and `nanors` parts, MIT), in `Native/moonlight/moonlight-common-c`, unchanged. Pairing and the
 stream's set-up follow Pocket XR for Windows, itself ported from moonlight-android's NvHTTP and PairingManager (GPLv3).
+
+PC VR uses [ALVR](https://github.com/alvr-org/ALVR)'s client core (MIT), version 21.0.0-dev14 with Pocket XR for
+Android's patch, built by `scripts/build-alvr.sh`.
