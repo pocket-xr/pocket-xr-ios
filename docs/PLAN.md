@@ -150,7 +150,7 @@ Mike decides what to do about each gap.
 - Say which iPhone or iPad he has (USB-C needed) and its iOS version.
 - In App Store Connect: create the app record (name "Pocket XR", bundle id
   `com.hayeco.pocketxr.ios` proposed) and an API key with App Manager role. The existing notary
-  key N744CT6GJ2 may already have the right role (Users and Access, Integrations).
+  key may already have the right role (Users and Access, Integrations).
 - Put the key (.p8, key id, issuer id) into the GitHub repo's Actions secrets himself.
 - TestFlight testers, export compliance, age rating, privacy answers, screenshots, and pressing
   Submit for review.
