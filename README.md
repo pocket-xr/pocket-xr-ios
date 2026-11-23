@@ -1,6 +1,6 @@
 # Pocket XR for iPhone and iPad
 
-In development, private until it works. The plan, with every Android feature and what iOS can match, is in
+In development: public since 23 November 2026, in public TestFlight testing soon. Not yet tried on a real iPhone or iPad. The plan, with every Android feature and what iOS can match, is in
 [docs/PLAN.md](docs/PLAN.md). What has and has not been proven is in [docs/STATUS.md](docs/STATUS.md).
 
 ## Layout

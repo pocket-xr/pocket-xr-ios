@@ -139,6 +139,9 @@ tile's live SteamVR state.
 
 ## CI minutes
 
+The repo became public on 23 November 2026, so GitHub Actions minutes are free from then on. What follows is the history while it was private.
+
+
 The repo is private, so macOS runs count against the organisation's free 2,000 Actions minutes a month at 10x.
 By 22 Nov 2026 this repo had used about 138 macOS minutes in November by GitHub's count, which lags by a run or two (about 1,380 of the 2,000; charged $0). A full run takes about 5 minutes, so roughly 12 more fit this month; the allowance resets on 1 December. With no payment method on the organisation, runs stop when the minutes are
 used up; nothing is charged. Making the repo public makes them free.
