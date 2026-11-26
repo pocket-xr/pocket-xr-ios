@@ -103,7 +103,7 @@ struct SetupCheckView: View {
         NavigationStack {
             List {
                 Section {
-                    Picker("Your glasses", selection: $glasses) {
+                    Picker("Your glasses", selection: Binding(get: { glasses }, set: { pick($0) })) {
                         Text("XREAL Aura").tag("aura")
                         Text("XREAL One, One Pro, 1S").tag("one")
                         Text("XREAL Air family").tag("air")
@@ -124,6 +124,13 @@ struct SetupCheckView: View {
             .navigationTitle("Glasses setup check")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
+    }
+
+    /// 0.1.1: picking the Aura or the One sets the sensor axes too, and is kept.
+    private func pick(_ g: String) {
+        glasses = g
+        if g == "one" { Probe.shared.setAxes(.one, picked: true) }
+        if g == "aura" { Probe.shared.setAxes(.aura, picked: true) }
     }
 
     private var steps: [String] {

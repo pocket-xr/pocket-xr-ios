@@ -31,6 +31,20 @@ public final class HeadFusion: @unchecked Sendable {
         var sign: SIMD3<Double> { self == .aura ? SIMD3(1, 1, 1) : SIMD3(1, -1, -1) }
     }
 
+    /// 0.1.1: which axes the glasses use, told from gravity on their raw accelerometer while they are worn or lie
+    /// roughly upright. The Aura's y points up and the One family's down, so the raw y reads about +g on an Aura and
+    /// about -g on a One. Nil when the reading is not gravity alone (moving) or the glasses are on their side.
+    /// The first device report (an iPad with a One, 25 November 2026) ran with the Aura's axes and drew the Space
+    /// upside down.
+    public static func axes(fromRawAccel a: SIMD3<Double>) -> Axes? {
+        let n = (a * a).sum().squareRoot()
+        guard n > 7, n < 13 else { return nil }
+        let y = a.y / n
+        if y > 0.7 { return .aura }
+        if y < -0.7 { return .one }
+        return nil
+    }
+
     static let kp = 1.0 // how hard tilt follows gravity, 1/s
     static let restBlock = 500 // reports, half a second at 1 kHz
     // A worn head turning slowly once passed an older test and was learnt as bias (the windows crept sideways), so the
@@ -258,5 +272,29 @@ public final class HeadFusion: @unchecked Sendable {
     public func view() -> Quat {
         lock.lock(); defer { lock.unlock() }
         return ref.conjugate * q
+    }
+}
+
+/// 0.1.1: the glasses' axes from their first quarter second of raw reports (HeadFusion.axes(fromRawAccel:)): the mean
+/// of the accelerometer, so one jolt does not decide it.
+public struct AxesGuess: Sendable {
+    public static let samples = 250
+
+    private var sum = SIMD3<Double>.zero
+    private var count = 0
+    /// True once enough reports were seen; [result] is then the guess, or nil when gravity did not say.
+    public private(set) var done = false
+    public private(set) var result: HeadFusion.Axes?
+
+    public init() {}
+
+    public mutating func add(_ s: ImuSample) {
+        guard !done else { return }
+        sum += s.accel
+        count += 1
+        if count >= Self.samples {
+            done = true
+            result = HeadFusion.axes(fromRawAccel: sum / Double(count))
+        }
     }
 }

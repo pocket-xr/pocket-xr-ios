@@ -1,6 +1,18 @@
 # What is proven, and what is not
 
-There is no iPhone or iPad to test on yet (21 Nov 2026), so everything is checked in CI on GitHub Actions
+## First real device (25 Nov 2026)
+
+A tester's iPad Air M1 (iPad13,16, iPadOS 26.6.1) with an XREAL One, on TestFlight 0.1.0 (2):
+
+| Item | State |
+|---|---|
+| External display scene | **Works**: the One shows as a 1920x1080 screen. iPadOS offers it only at 60 Hz (the One can do 120). |
+| The One's USB network | **Works**: iPadOS brought up en5 (169.254.2.10 to the glasses at 169.254.2.1) and en4 (169.254.1.x) about 29 s after launch, around 5 s after the screen came up. |
+| Head tracking | **Streams** at 1,000 reports a second. The picture was **upside down**: 0.1.0 always started with the Aura's axes. Fixed in 0.1.1 (gravity picks the axes, and a pick is kept); 0.1.1 is untried on a device. |
+| Smooth head movement | Reported choppy on 0.1.0 with the wrong axes; not yet known with the right ones. |
+| Control link | Started, as the Aura on 0.1.0; 0.1.1 starts it as the model gravity or the user picked. |
+
+Before that, with no iPhone or iPad to test on (21 Nov 2026), everything is checked in CI on GitHub Actions
 (macos-26 runner, Xcode 26.3, iOS 26.4.1 Simulator): builds, the core's tests, and runs in the iOS Simulator.
 
 ## Phase 0

@@ -71,6 +71,28 @@ final class HeadFusionTests: XCTestCase {
         }
         XCTAssertEqual(f.view().yaw * 180 / .pi, 30, accuracy: 1.5)
     }
+
+    func testGravityTellsTheAuraFromTheOne() {
+        XCTAssertEqual(HeadFusion.axes(fromRawAccel: SIMD3(0, 9.81, 0)), .aura)
+        XCTAssertEqual(HeadFusion.axes(fromRawAccel: SIMD3(0, -9.81, 0)), .one)
+        // The Aura's sensor sits about 14.5 degrees pitched; a worn head looks up or down a little too.
+        XCTAssertEqual(HeadFusion.axes(fromRawAccel: SIMD3(0, 9.81 * cos(0.6), 9.81 * sin(0.6))), .aura)
+        XCTAssertEqual(HeadFusion.axes(fromRawAccel: SIMD3(0, -9.81 * cos(0.6), -9.81 * sin(0.6))), .one)
+        XCTAssertNil(HeadFusion.axes(fromRawAccel: SIMD3(9.81, 0, 0)), "on its side")
+        XCTAssertNil(HeadFusion.axes(fromRawAccel: SIMD3(0, 20, 0)), "a jolt, not gravity")
+        XCTAssertNil(HeadFusion.axes(fromRawAccel: .zero))
+    }
+
+    func testTheGuessWaitsForAQuarterSecondAndAverages() {
+        var g = AxesGuess()
+        for i in 0..<(AxesGuess.samples - 1) {
+            g.add(ImuSample(timestampNs: UInt64(i), gyro: .zero, accel: SIMD3(0, i == 0 ? 30 : -9.81, 0)))
+        }
+        XCTAssertFalse(g.done)
+        g.add(ImuSample(timestampNs: 999, gyro: .zero, accel: SIMD3(0, -9.81, 0)))
+        XCTAssertTrue(g.done)
+        XCTAssertEqual(g.result, .one)
+    }
 }
 
 final class ControlWireTests: XCTestCase {
