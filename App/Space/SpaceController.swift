@@ -383,6 +383,8 @@ final class SpaceController: ObservableObject {
         let host = URL(string: url)?.host ?? "Web"
         guard let w = space.open(.web(url: url), title: host, layoutWidth: SpaceWindows.webWidth, layoutHeight: SpaceWindows.webHeight, at: viewAim) else { return nil }
         makeHost(w)
+        // 0.1.2: without head tracking the view turns to it (a new window can land beside the others, out of sight).
+        bringFocusedIntoView()
         changed()
         return w.id
     }
@@ -394,6 +396,8 @@ final class SpaceController: ObservableObject {
         guard let w = space.open(.pcScreen(slot: slot), title: "PC screen \(slot + 1)", layoutWidth: SpaceWindows.pcWidth,
                                  layoutHeight: SpaceWindows.pcHeight + Double(WindowHost.barHeight), widthDeg: 44, at: viewAim) else { return nil }
         makeHost(w)
+        // 0.1.2: without head tracking the view turns to it (a new window can land beside the others, out of sight).
+        bringFocusedIntoView()
         changed()
         return w.id
     }
@@ -421,6 +425,8 @@ final class SpaceController: ObservableObject {
         guard let w = space.open(.launcher, title: "Apps", layoutWidth: SpaceWindows.launcherWidth, layoutHeight: SpaceWindows.launcherHeight + Double(WindowHost.barHeight),
                                  widthDeg: 34, at: viewAim) else { return nil }
         makeHost(w)
+        // 0.1.2: without head tracking the view turns to it (a new window can land beside the others, out of sight).
+        bringFocusedIntoView()
         changed()
         return w.id
     }
@@ -438,6 +444,8 @@ final class SpaceController: ObservableObject {
         guard let w = space.open(.controlCenter, title: "Control Center", layoutWidth: SpaceWindows.controlWidth,
                                  layoutHeight: SpaceWindows.controlHeight + Double(WindowHost.barHeight), widthDeg: 28, at: below) else { return nil }
         makeHost(w)
+        // 0.1.2: without head tracking the view turns to it (a new window can land beside the others, out of sight).
+        bringFocusedIntoView()
         changed()
         return w.id
     }

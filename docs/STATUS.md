@@ -12,6 +12,12 @@ A tester's iPad Air M1 (iPad13,16, iPadOS 26.6.1) with an XREAL One, on TestFlig
 | Smooth head movement | Reported choppy on 0.1.0 with the wrong axes; not yet known with the right ones. |
 | Control link | Started, as the Aura on 0.1.0; 0.1.1 starts it as the model gravity or the user picked. |
 
+Second session, 26 Nov 2026, on TestFlight 0.1.1 (3): iPadOS brought up **no** USB network this time (only en0, Wi-Fi,
+for over 5 minutes), so there was no head tracking and the 0.1.1 axes fix is still untried. The tester said Apps showed
+an empty black view: a new window lands beside the open ones, and without head tracking 0.1.1 did not turn the view to
+it. 0.1.2 turns the view to every new window when there is no head tracking. Windows past the edge of the 1920x1080
+view are reached by pushing the pointer past the edge.
+
 Before that, with no iPhone or iPad to test on (21 Nov 2026), everything is checked in CI on GitHub Actions
 (macos-26 runner, Xcode 26.3, iOS 26.4.1 Simulator): builds, the core's tests, and runs in the iOS Simulator.
 
