@@ -17,7 +17,6 @@ final class PhoneSceneDelegate: UIResponder, UIWindowSceneDelegate {
 /// The phone's screen in phase 0: what iOS reports about the glasses and their USB network, with a report to share.
 struct ProbeView: View {
     @EnvironmentObject var model: AppModel
-    @State private var axesOne = false
 
     var body: some View {
         NavigationStack {
@@ -49,8 +48,9 @@ struct ProbeView: View {
                     row("Reports", "\(model.probe.reports) (\(model.probe.imuReports) motion)")
                     row("Rate", String(format: "%.0f Hz", model.probe.imuRateHz))
                     row("Yaw, pitch", String(format: "%.1f°, %.1f°", model.probe.yawDeg, model.probe.pitchDeg))
-                    Toggle("XREAL One family axes", isOn: $axesOne)
-                        .onChange(of: axesOne) { _, on in Probe.shared.setAxes(on ? .one : .aura) }
+                    Toggle("XREAL One family axes", isOn: Binding(
+                        get: { model.probe.axesOne },
+                        set: { Probe.shared.setAxes($0 ? .one : .aura, picked: true) }))
                     Button("Recentre") { Probe.shared.recentre() }
                 }
                 Section {

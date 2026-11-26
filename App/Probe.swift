@@ -20,6 +20,24 @@ struct ProbeState: Codable, Equatable {
     var yawMinDeg = 0.0
     var yawMaxDeg = 0.0
     var biasReady = false
+    /// 0.1.1: the sensor axes in use are the One family's.
+    var axesOne = false
+}
+
+/// 0.1.1: the glasses kept between launches. "setup.glasses" is the setup check's pick ("aura", "one", "air", ...);
+/// "setup.glasses.picked" is true once the user picked the Aura or the One there or with the axes switch, which then
+/// wins over gravity. Before 0.1.1 the axes always started as the Aura's and the switch was forgotten at each launch.
+enum GlassesChoice {
+    static let key = "setup.glasses"
+    static let pickedKey = "setup.glasses.picked"
+
+    static var axes: HeadFusion.Axes { UserDefaults.standard.string(forKey: key) == "one" ? .one : .aura }
+    static var picked: Bool { UserDefaults.standard.bool(forKey: pickedKey) }
+
+    static func save(_ a: HeadFusion.Axes, picked: Bool) {
+        UserDefaults.standard.set(a == .one ? "one" : "aura", forKey: key)
+        if picked { UserDefaults.standard.set(true, forKey: pickedKey) }
+    }
 }
 
 /// The glasses' sensor stream over their USB network: TCP 52998 on 169.254.2.1 (NCM) or 169.254.1.1 (ECM), found and
@@ -31,10 +49,10 @@ final class Probe: @unchecked Sendable {
     static let shared = Probe()
 
     private let lock = NSLock()
-    private var state = ProbeState()
+    private var state = ProbeState(axesOne: GlassesChoice.axes == .one)
     private var started = false
-    private var axes: HeadFusion.Axes = .aura
-    private var fusion = HeadFusion(axes: .aura)
+    private var axes: HeadFusion.Axes = GlassesChoice.axes
+    private var fusion = HeadFusion(axes: GlassesChoice.axes)
     /// The drawing pose: prediction to the frame's light, draw smoothing, the Still lock, Smooth Follow (the same
     /// chain as on the Mac and Steam Deck, PocketXRCore's HeadPose).
     private lazy var pose = HeadPose(fusion: fusion)
@@ -55,15 +73,30 @@ final class Probe: @unchecked Sendable {
         return f.view()
     }
 
-    func setAxes(_ a: HeadFusion.Axes) {
+    /// [picked]: the user chose them (the axes switch or the setup check), so gravity no longer decides.
+    func setAxes(_ a: HeadFusion.Axes, picked: Bool) {
+        GlassesChoice.save(a, picked: picked)
         lock.lock()
+        let changed = axes != a
         axes = a
-        fusion = HeadFusion(axes: a)
-        pose = HeadPose(fusion: fusion)
-        state.yawMinDeg = 0
-        state.yawMaxDeg = 0
+        if changed {
+            fusion = HeadFusion(axes: a)
+            pose = HeadPose(fusion: fusion)
+            state.yawMinDeg = 0
+            state.yawMaxDeg = 0
+        }
+        state.axesOne = a == .one
+        let s = state
         lock.unlock()
-        AppLog.line("probe: sensor axes set to \(a == .aura ? "Aura" : "One family")")
+        DispatchQueue.main.async { [weak self] in self?.onChange?(s) }
+        guard changed else { return }
+        AppLog.line("probe: sensor axes set to \(a == .aura ? "Aura" : "One family")\(picked ? " (picked)" : "")")
+        DispatchQueue.main.async { MainActor.assumeIsolated { GlassesControl.shared.use(one: a == .one) } }
+    }
+
+    private var currentAxes: HeadFusion.Axes {
+        lock.lock(); defer { lock.unlock() }
+        return axes
     }
 
     func recentre() {
@@ -131,12 +164,8 @@ final class Probe: @unchecked Sendable {
                     (fd, via) = try GlassesNet.open(port: ImuFramer.port) { AppLog.line("probe: \($0)") }
                 }
                 AppLog.line("probe: sensor stream open via \(via)")
-                if overrideHost == nil {
-                    let one = axes == .one
-                    DispatchQueue.main.async { MainActor.assumeIsolated { GlassesControl.shared.startIfLinked(one: one) } }
-                }
                 update { $0.link = .streaming; $0.via = via; $0.lastError = "" }
-                read(fd)
+                read(fd, control: overrideHost == nil)
                 close(fd)
                 AppLog.line("probe: sensor stream closed")
                 update { $0.link = .lost }
@@ -152,8 +181,14 @@ final class Probe: @unchecked Sendable {
         }
     }
 
-    private func read(_ fd: Int32) {
+    /// [control]: start the glasses' control link once the glasses are known (not with the Simulator's test host).
+    private func read(_ fd: Int32, control: Bool) {
         let framer = ImuFramer()
+        // 0.1.1: the first quarter second tells an Aura from a One by gravity, unless the user picked them; the
+        // control link starts after it, so the glasses are set up as what they are.
+        var guess = AxesGuess()
+        var known = false
+        let picked = GlassesChoice.picked
         var buf = [UInt8](repeating: 0, count: 16384)
         var windowStart = ProcessInfo.processInfo.systemUptime
         var windowImu = 0
@@ -171,7 +206,31 @@ final class Probe: @unchecked Sendable {
             lock.lock()
             let f = fusion
             lock.unlock()
-            for s in samples { f.report(s, arrived: now) }
+            for s in samples {
+                f.report(s, arrived: now)
+                guess.add(s)
+            }
+            if !known && guess.done {
+                known = true
+                let inUse = currentAxes
+                let name: (HeadFusion.Axes) -> String = { $0 == .aura ? "Aura" : "One family" }
+                if let g = guess.result {
+                    if g == inUse {
+                        AppLog.line("probe: gravity reads like the \(name(g)) axes in use")
+                    } else if picked {
+                        AppLog.line("probe: gravity reads like the \(name(g)), but the \(name(inUse)) was picked; keeping it")
+                    } else {
+                        AppLog.line("probe: gravity reads like the \(name(g)), not the \(name(inUse))")
+                        setAxes(g, picked: false)
+                    }
+                } else {
+                    AppLog.line("probe: gravity did not tell the glasses' axes (moving or on their side); keeping the \(name(inUse))")
+                }
+                if control {
+                    let one = currentAxes == .one
+                    DispatchQueue.main.async { MainActor.assumeIsolated { GlassesControl.shared.startIfLinked(one: one) } }
+                }
+            }
             windowImu += samples.count
             if now - lastPublish >= 1.0 / 30 {
                 lastPublish = now

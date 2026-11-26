@@ -15,6 +15,7 @@ final class GlassesControl {
     static let shared = GlassesControl()
 
     private var control: SettingsControl?
+    private var one = false
     private(set) var state = SettingsControl.State()
     var onState: ((SettingsControl.State) -> Void)?
 
@@ -34,8 +35,19 @@ final class GlassesControl {
         // One picture for both eyes (docs/STATUS.md), so the glasses stay in 2D; PC VR's two eyes want 3D.
         c.want3D = { PcVrSession.wants3D }
         control = c
+        self.one = one
         c.start()
         AppLog.line("glasses: control link started for the \(glasses.name)")
+    }
+
+    /// 0.1.1: the glasses turned out to be the other model (the axes switch, or gravity): the link starts again as it.
+    func use(one: Bool) {
+        guard let c = control, self.one != one else { return }
+        c.stop()
+        control = nil
+        state = SettingsControl.State()
+        AppLog.line("glasses: control link stopped, to start again as the \(one ? "XREAL One" : "XREAL Aura")")
+        startIfLinked(one: one)
     }
 
     /// Steady mode in the glasses (Ultrawide and their Spatial Anchor). Nothing is sent without the control link.
